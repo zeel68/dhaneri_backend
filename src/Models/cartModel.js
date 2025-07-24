@@ -58,9 +58,7 @@ const cartSchema = new Schema({
     user_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
-
         unique: true,
-        index: true
     },
     store_id: {
         type: Schema.Types.ObjectId,

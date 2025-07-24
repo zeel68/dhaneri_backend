@@ -17,7 +17,7 @@ const addToCart = async (request, reply) => {
     // Validate product
     const product = await Product.findOne({
       _id: product_id,
-      store_id: new mongoose.Types.ObjectId(store_id),
+      store_id: store_id,
       is_active: true,
       // is_published: true,
     })
