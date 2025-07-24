@@ -8,7 +8,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Setup logs directory
-const logsDir = path.join(__dirname, "../logs")
+const isVercel = process.env.VERCEL === "1" || process.env.NODE_ENV === "production"
+const logsDir = isVercel ? "/tmp/logs" : path.join(__dirname, "../logs")
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true })
 }
@@ -32,11 +33,11 @@ winston.addColors(colors)
 
 // Define log format
 const format = winston.format.combine(
-    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:ms" }),
-    winston.format.colorize({ all: true }),
-    winston.format.printf(
-        (info) => `${info.timestamp} ${info.level}: ${info.message}`
-    ),
+  winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:ms" }),
+  winston.format.colorize({ all: true }),
+  winston.format.printf(
+    (info) => `${info.timestamp} ${info.level}: ${info.message}`
+  ),
 )
 
 // Create Winston logger instance
@@ -47,8 +48,8 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(
-          winston.format.colorize(),
-          winston.format.simple()
+        winston.format.colorize(),
+        winston.format.simple()
       ),
     }),
     new winston.transports.File({
