@@ -132,7 +132,7 @@ const registerUser = asyncHandler(async (request, reply) => {
         }
     }
 
-    // Check if user already exists
+    // Check if user already exists or not
     const existingUser = await User.findOne({
         $or: [{ email: email.toLowerCase() }, { phone_number }],
     });
