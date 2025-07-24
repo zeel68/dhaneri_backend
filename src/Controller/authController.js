@@ -8,7 +8,7 @@ import { otpService } from "../utils/otpService.js"
 import { uploadOnCloudinary } from "../utils/upload.js"
 import { Role } from "../Models/roleModel.js";
 import { Store } from "../Models/storeModel.js";
-import { Cart } from "../Models/cartModel.js"; // Declare the variable here
+import { Cart } from "../Models/cartModel.js";
 
 // Generate Access and Refresh Tokens
 const generateAccessAndRefereshTokens = async (userId) => {
