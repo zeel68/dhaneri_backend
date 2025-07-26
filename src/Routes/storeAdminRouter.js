@@ -209,5 +209,5 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/products/filter/tag-values", getProductsByTagValues)
   fastify.put("/category/:category_id", updateStoreCategory)
   fastify.delete("/category/:category_id", deleteStoreCategory)
-  fastify.patch("/category/:category_id/status", toggleStoreCategoryStatus)
+  fastify.post("/category/:category_id/status", toggleStoreCategoryStatus)
 }
