@@ -88,31 +88,27 @@ const toggleStoreCategoryStatus = async (request, reply) => {
     try {
         const { category_id } = request.params;
         const store_id = request.user.store_id;
-        const { is_active } = request.body;
 
-        if (typeof is_active !== "boolean") {
-            return reply.code(400).send(new ApiResponse(400, {}, "is_active boolean flag is required"));
-        }
+        // Fetch the current category
+        const category = await StoreCategoryModel.findOne({ _id: category_id, store_id });
 
-        // Find and update the store category's active status
-        const updatedCategory = await StoreCategoryModel.findOneAndUpdate(
-            { _id: category_id, store_id },
-            { is_active },
-            { new: true }
-        );
-
-        if (!updatedCategory) {
+        if (!category) {
             return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));
         }
 
+        // Toggle is_active value
+        category.is_active = !category.is_active;
+        await category.save();
+
         return reply
             .code(200)
-            .send(new ApiResponse(200, updatedCategory, "Store category status toggled successfully"));
+            .send(new ApiResponse(200, category, "Store category status toggled successfully"));
     } catch (error) {
         request.log?.error?.(error);
-        return reply.code(500).send(new ApiResponse(500, {}, "Error toggling store category status"));
+        return reply.code(500).send(new ApiResponse(500, { msg: error.toString() }, "Error toggling store category status"));
     }
 };
+
 
 
 const getStoreCategories = async (request, reply) => {

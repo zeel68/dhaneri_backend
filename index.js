@@ -116,7 +116,7 @@
 // start()
 
 
-// index.js(Vercel Entry Point)
+index.js(Vercel Entry Point)
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
