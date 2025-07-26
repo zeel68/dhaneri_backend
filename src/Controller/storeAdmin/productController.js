@@ -1,13 +1,13 @@
 // 1. Add Product to Store
-import {ApiResponse} from "../../utils/ApiResponse.js";
-import {Product} from "../../Models/productModel.js";
-import {Store} from "../../Models/storeModel.js";
-import {StoreCategoryModel} from "../../Models/storeCategoryModel.js";
-
+import { ApiResponse } from "../../utils/ApiResponse.js"
+import { Product } from "../../Models/productModel.js"
+import { Store } from "../../Models/storeModel.js"
+import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
+import {deleteFromCloudinary} from "../../utils/upload.js";
 const addProduct = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { name, description, price, category, attributes, stock, images, tags, storeCategory,parent_category } = request.body
+        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category,image } = request.body
 
         if (!name?.trim() || !price || !category) {
             return reply.code(400).send(new ApiResponse(400, {}, "Name, price, and category are required"))
@@ -19,23 +19,53 @@ const addProduct = async (request, reply) => {
             return reply.code(404).send(new ApiResponse(404, {}, "Store not found"))
         }
 
+        // Handle uploaded images
+        let images = []
+        if (image && image.length > 0) {
+            images = request.files.map((file) => ({
+                url: file.path || file.secure_url,
+                public_id: file.public_id || file.filename,
+                alt_text: `${name} image`,
+                is_primary: false,
+            }))
+
+            // Set first image as primary
+            if (images.length > 0) {
+                images[0].is_primary = true
+            }
+        }
+
         const product = await Product.create({
             name,
             description,
-            price,
+            price: Number(price),
             category,
             parent_category,
             store_id: storeId,
-            attributes,
-            stock,
+            attributes: attributes ? JSON.parse(attributes) : {},
+            stock: stock ? JSON.parse(stock) : { quantity: 0, status: "out_of_stock" },
             images,
-            tags,
+            tags: tags ? JSON.parse(tags) : [],
             storeCategory,
         })
 
         return reply.code(201).send(new ApiResponse(201, product, "Product added successfully"))
     } catch (error) {
         request.log?.error?.(error)
+
+        // Clean up uploaded files if product creation fails
+        if (request.files && request.files.length > 0) {
+            for (const file of request.files) {
+                if (file.public_id) {
+                    try {
+                        await deleteFromCloudinary(file.public_id)
+                    } catch (cleanupError) {
+                        console.error("Error cleaning up uploaded file:", cleanupError)
+                    }
+                }
+            }
+        }
+
         return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding the product"))
     }
 }
@@ -99,16 +129,13 @@ const getStoreProducts = async (request, reply) => {
     }
 }
 
-
 // 3. Get Product by ID (Store Admin)
 const getProductById = async (request, reply) => {
     try {
         const { productId } = request.params
         const storeId = request.user.store_id
 
-        const product = await Product.findOne({ _id: productId, store_id: storeId })
-            .populate("category", "name")
-
+        const product = await Product.findOne({ _id: productId, store_id: storeId }).populate("category", "name")
 
         if (!product) {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
@@ -124,24 +151,68 @@ const getProductById = async (request, reply) => {
 // 4. Update Product
 const updateProduct = async (request, reply) => {
     try {
-        const { productId } = request.params
-        const storeId = request.user.store_id
-        const updateData = { ...request.body, updated_at: new Date() }
+        const { productId } = request.params;
+        const storeId = request.user.store_id;
+        const updateData = { ...request.body, updated_at: new Date() };
 
-        const updated = await Product.findOneAndUpdate({ _id: productId, store_id: storeId }, updateData, {
-            new: true,
-        }).populate("category", "name")
-
-        if (!updated) {
-            return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
+        // Parse JSON fields if they are strings
+        if (updateData.attributes && typeof updateData.attributes === "string") {
+            updateData.attributes = JSON.parse(updateData.attributes);
+        }
+        if (updateData.stock && typeof updateData.stock === "string") {
+            updateData.stock = JSON.parse(updateData.stock);
+        }
+        if (updateData.tags && typeof updateData.tags === "string") {
+            updateData.tags = JSON.parse(updateData.tags);
         }
 
-        return reply.code(200).send(new ApiResponse(200, updated, "Product updated successfully"))
+        // Fetch existing product
+        const existingProduct = await Product.findOne({ _id: productId, store_id: storeId });
+        if (!existingProduct) {
+            return reply.code(404).send(new ApiResponse(404, {}, "Product not found"));
+        }
+
+        // Handle new uploaded images (only keep public URLs)
+        if (updateData.image && Array.isArray(updateData.image) && updateData.image.length > 0) {
+            const newImageUrls = updateData.image
+                .map((file) => file?.path || file?.secure_url)
+                .filter((url) => typeof url === "string" && url.trim().length > 0);
+
+            updateData.images = [...(existingProduct.images || []), ...newImageUrls];
+        }
+
+        // Final safeguard: ensure images is an array of strings
+        if (updateData.images && Array.isArray(updateData.images)) {
+            updateData.images = updateData.images.filter((url) => typeof url === "string" && url.trim());
+        }
+
+        const updated = await Product.findOneAndUpdate(
+            { _id: productId, store_id: storeId },
+            updateData,
+            { new: true }
+        ).populate("category", "name");
+
+        return reply.code(200).send(new ApiResponse(200, updated, "Product updated successfully"));
     } catch (error) {
-        request.log?.error?.(error)
-        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while updating the product"))
+        request.log?.error?.(error);
+
+        // Cleanup: delete newly uploaded images if update fails
+        const { image } = request.body;
+        if (image && Array.isArray(image)) {
+            for (const file of image) {
+                if (file.public_id) {
+                    try {
+                        await deleteFromCloudinary(file.public_id);
+                    } catch (cleanupError) {
+                        console.error("Error cleaning up uploaded file:", cleanupError);
+                    }
+                }
+            }
+        }
+
+        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while updating the product"));
     }
-}
+};
 
 // 5. Delete Product
 const deleteProduct = async (request, reply) => {
@@ -231,34 +302,34 @@ const getOutOfStockProducts = async (request, reply) => {
 // add product to category
 const addProductToCategory = async (request, reply) => {
     try {
-        const { product_id, category_id } = request.body;
-        const store_id = request.user.store_id;
+        const { product_id, category_id } = request.body
+        const store_id = request.user.store_id
 
         if (!product_id || !category_id || !store_id) {
-            return reply.code(400).send(new ApiResponse(400, {}, "Missing product_id or category_id"));
+            return reply.code(400).send(new ApiResponse(400, {}, "Missing product_id or category_id"))
         }
 
-        const storeCategory = await StoreCategoryModel.findById(category_id);
+        const storeCategory = await StoreCategoryModel.findById(category_id)
 
         if (!storeCategory) {
-            return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));
+            return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"))
         }
 
-        const productExists = storeCategory.products.includes(product_id);
+        const productExists = storeCategory.products.includes(product_id)
 
         if (productExists) {
-            return reply.code(409).send(new ApiResponse(409, {}, "Product already exists in this category"));
+            return reply.code(409).send(new ApiResponse(409, {}, "Product already exists in this category"))
         }
 
-        storeCategory.products.push(product_id);
-        await storeCategory.save();
+        storeCategory.products.push(product_id)
+        await storeCategory.save()
 
-        return reply.code(200).send(new ApiResponse(200, storeCategory, "Product added to category successfully"));
+        return reply.code(200).send(new ApiResponse(200, storeCategory, "Product added to category successfully"))
     } catch (error) {
-        request.log?.error?.(error);
-        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding product to category"));
+        request.log?.error?.(error)
+        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding product to category"))
     }
-};
+}
 
 export {
     getOutOfStockProducts,
@@ -269,5 +340,5 @@ export {
     deleteProduct,
     addProduct,
     bulkUpdateProducts,
-    addProductToCategory
+    addProductToCategory,
 }

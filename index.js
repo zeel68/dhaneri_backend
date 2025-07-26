@@ -14,8 +14,6 @@
 // import storeAdminRoutes from "./src/Routes/storeAdminRouter.js";
 // import superAdminRouter from "./src/Routes/superAdminRouter.js";
 // import storefrontRoutes from "./src/Routes/storeFrontRouter.js";
-// import {Store} from "./src/Models/storeModel.js";
-// import {StoreCategoryModel} from "./src/Models/storeCategoryModel.js";
 // const app = Fastify({
 //     logger: true,
 //     trustProxy: true,
@@ -118,7 +116,7 @@
 // start()
 
 
-// index.js (Vercel Entry Point)
+// index.js(Vercel Entry Point)
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";

@@ -138,3 +138,18 @@ export const generateSignedUploadUrl = (folder = "ecommerce") => {
     ...params,
   })
 }
+
+export const extractPublicId = (cloudinaryUrl) => {
+  if (!cloudinaryUrl || typeof cloudinaryUrl !== "string") {
+    return null
+  }
+
+  try {
+    // Extract public ID from Cloudinary URL
+    const matches = cloudinaryUrl.match(/\/v\d+\/(.+)\.[^.]+$/)
+    return matches ? matches[1] : null
+  } catch (error) {
+    console.error("Error extracting public ID:", error)
+    return null
+  }
+}

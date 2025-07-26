@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "register a new user",
+    "description": "Test the user registration endpoint to ensure it accepts valid user details including name, email, password, and store_id, and returns appropriate success or error responses."
+  },
+  {
+    "id": "TC002",
+    "title": "login user",
+    "description": "Verify the login endpoint accepts valid email and password, returns a JWT token on success, and handles invalid credentials with proper error messages."
+  },
+  {
+    "id": "TC003",
+    "title": "refresh jwt access token",
+    "description": "Test the refresh token endpoint to ensure it issues a new JWT access token when provided with a valid refresh token, and rejects invalid or expired tokens."
+  },
+  {
+    "id": "TC004",
+    "title": "verify user email",
+    "description": "Validate the email verification endpoint by submitting correct and incorrect OTP codes for a given email and checking for appropriate success or failure responses."
+  },
+  {
+    "id": "TC005",
+    "title": "resend email verification",
+    "description": "Test the resend verification endpoint to confirm it triggers a new verification email to the user and handles cases where the email is already verified or invalid."
+  },
+  {
+    "id": "TC006",
+    "title": "request password reset",
+    "description": "Verify the forgot password endpoint accepts a valid email and initiates the password reset process, including sending an OTP or reset link."
+  },
+  {
+    "id": "TC007",
+    "title": "reset password",
+    "description": "Test the reset password endpoint by submitting valid email, OTP, and new password, ensuring the password is updated and invalid inputs are handled properly."
+  },
+  {
+    "id": "TC008",
+    "title": "logout user with jwt",
+    "description": "Ensure the logout endpoint invalidates the user's JWT session token and requires valid authentication to access."
+  },
+  {
+    "id": "TC009",
+    "title": "change password with jwt",
+    "description": "Test the change password endpoint for authenticated users, verifying that the password is updated correctly and invalid inputs are rejected."
+  },
+  {
+    "id": "TC010",
+    "title": "get current user profile with jwt",
+    "description": "Verify the get current user profile endpoint returns accurate user information for authenticated requests and denies access without valid JWT."
+  }
+]

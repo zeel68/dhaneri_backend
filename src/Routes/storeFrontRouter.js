@@ -64,6 +64,13 @@ import {
 } from "../Controller/storeFront/reviewController.js"
 import { getHomepageConfig } from "../Controller/storeAdmin/homepageController.js"
 import { verifyJWT } from "../Middleware/auth.middleware.js"
+import {
+  trackSession,
+  trackProductView,
+  trackCartEvent,
+  trackWishlistEvent,
+  endSession,
+} from "../Controller/storeFront/sessionController.js"
 
 export default async function storefrontRoutes(fastify, opts) {
   // Store and Homepage Routes
@@ -125,4 +132,11 @@ export default async function storefrontRoutes(fastify, opts) {
     { preHandler: verifyJWT },
     getUserProductReview,
   )
+
+  // Session/Tracking Routes for Store Front
+  fastify.post("/store/:store_id/session", trackSession)
+  fastify.post("/store/:store_id/product/:product_id/view", trackProductView)
+  fastify.post("/store/:store_id/cart/event", trackCartEvent)
+  fastify.post("/store/:store_id/wishlist/event", trackWishlistEvent)
+  fastify.put("/store/:store_id/session/:session_id/end", endSession)
 }

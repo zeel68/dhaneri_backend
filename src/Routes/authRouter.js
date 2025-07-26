@@ -21,6 +21,7 @@ export default async function authRoutes(fastify, opts) {
 
     // 📦 Public routes
     fastify.post("/register", {
+
         // preHandler: [validate(commonSchemas.registerUser)],
         handler: registerUser,
     })

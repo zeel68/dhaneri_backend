@@ -1,16 +1,16 @@
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { ApiError } from "../../utils/ApiError.js"
-import { Product } from "../../Models/productModel.js";
-import { StoreCategory } from "../../Models/productModel.js";
-import { Category } from "../../Models/categoryModel.js";
-import { HeroSlide, Testimonial, TrendingCategory, TrendingProduct } from "../../Models/homepageModel.js";
-import { StoreCategoryModel } from "../../Models/storeCategoryModel.js";
+import { Product } from "../../Models/productModel.js"
+import { HeroSlide, Testimonial, TrendingCategory, TrendingProduct } from "../../Models/homepageModel.js"
+import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
+import { deleteFromCloudinary } from "../../Middleware/upload.middleware.js"
+import {extractPublicId} from "../../utils/upload.js";
 
 // 1. Get Homepage Configuration (Dynamic)
 const getHomepageConfig = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        console.warn("Home Page");
+        console.warn("Home Page")
 
         // Get all dynamic homepage data
         const [heroSlides, trendingCategories, testimonials] = await Promise.all([
@@ -18,26 +18,20 @@ const getHomepageConfig = async (request, reply) => {
             TrendingCategory.find({ store_id: storeId })
                 .sort({ display_order: 1 })
                 .populate({
-                    path: 'category_id',
-                    model: 'StoreCategory',
+                    path: "category_id",
+                    model: "StoreCategory",
                     populate: {
-                        path: 'products',
-                        model: 'Product',
-                        select: 'name description price images stock ratings'
-                    }
+                        path: "products",
+                        model: "Product",
+                        select: "name description price images stock ratings",
+                    },
                 }),
-
-            // TrendingProduct.find({ store_id: storeId })
-            //     .populate("product", "name description price images stock ratings")
-            //     .sort({ display_order: 1 }),
             Testimonial.find({ store_id: storeId }).sort({ createdAt: -1 }),
         ])
 
         const homepageConfig = {
             heroSlides,
             trendingCategories,
-
-
             testimonials,
         }
 
@@ -55,10 +49,16 @@ const getHomepageConfig = async (request, reply) => {
 const createHeroSlide = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { image_url, title, subtitle, link, display_order = 0 } = request.body
+        const { title, subtitle, link, display_order = 0 } = request.body
+
+        // Handle uploaded image
+        let image_url = null
+        if (request.file) {
+            image_url = request.file.path || request.file.secure_url
+        }
 
         if (!image_url) {
-            throw new ApiError(400, "Image URL is required")
+            return reply.code(400).send(new ApiResponse(400, {}, "Hero image is required"))
         }
 
         const heroSlide = new HeroSlide({
@@ -67,7 +67,7 @@ const createHeroSlide = async (request, reply) => {
             title,
             subtitle,
             link,
-            display_order,
+            display_order: Number(display_order),
             is_active: true,
         })
 
@@ -76,6 +76,16 @@ const createHeroSlide = async (request, reply) => {
         return reply.code(201).send(new ApiResponse(201, heroSlide, "Hero slide created successfully"))
     } catch (error) {
         request.log?.error?.(error)
+
+        // Clean up uploaded file if hero slide creation fails
+        if (request.file && request.file.public_id) {
+            try {
+                await deleteFromCloudinary(request.file.public_id)
+            } catch (cleanupError) {
+                console.error("Error cleaning up uploaded file:", cleanupError)
+            }
+        }
+
         if (error instanceof ApiError) {
             return reply.code(error.statusCode).send(new ApiResponse(error.statusCode, {}, error.message))
         }
@@ -88,30 +98,67 @@ const updateHeroSlide = async (request, reply) => {
     try {
         const storeId = request.user.store_id
         const { slideId } = request.params
-        const { image_url, title, subtitle, link, display_order, is_active } = request.body
+        const { title, subtitle, link, display_order, is_active } = request.body
+
+        // Get existing slide to handle image replacement
+        const existingSlide = await HeroSlide.findOne({ _id: slideId, store_id: storeId })
+        if (!existingSlide) {
+            // Clean up uploaded file if slide doesn't exist
+            if (request.file && request.file.public_id) {
+                try {
+                    await deleteFromCloudinary(request.file.public_id)
+                } catch (cleanupError) {
+                    console.error("Error cleaning up uploaded file:", cleanupError)
+                }
+            }
+            throw new ApiError(404, "Hero slide not found")
+        }
+
+        const updateData = {
+            ...(title !== undefined && { title }),
+            ...(subtitle !== undefined && { subtitle }),
+            ...(link !== undefined && { link }),
+            ...(display_order !== undefined && { display_order: Number(display_order) }),
+            ...(is_active !== undefined && { is_active: Boolean(is_active) }),
+        }
+
+        // Handle new image upload
+        if (request.file) {
+            const newImageUrl = request.file.path || request.file.secure_url
+            updateData.image_url = newImageUrl
+
+            // Delete old image from Cloudinary
+            if (existingSlide.image_url) {
+                const oldPublicId = extractPublicId(existingSlide.image_url)
+                if (oldPublicId) {
+                    try {
+                        await deleteFromCloudinary(oldPublicId)
+                    } catch (deleteError) {
+                        console.error("Error deleting old image:", deleteError)
+                    }
+                }
+            }
+        }
 
         const updatedSlide = await HeroSlide.findOneAndUpdate(
             { _id: slideId, store_id: storeId },
-            {
-                $set: {
-                    ...(image_url && { image_url }),
-                    ...(title !== undefined && { title }),
-                    ...(subtitle !== undefined && { subtitle }),
-                    ...(link !== undefined && { link }),
-                    ...(display_order !== undefined && { display_order }),
-                    ...(is_active !== undefined && { is_active }),
-                },
-            },
+            { $set: updateData },
             { new: true },
         )
-
-        if (!updatedSlide) {
-            throw new ApiError(404, "Hero slide not found")
-        }
 
         return reply.code(200).send(new ApiResponse(200, updatedSlide, "Hero slide updated successfully"))
     } catch (error) {
         request.log?.error?.(error)
+
+        // Clean up uploaded file if update fails
+        if (request.file && request.file.public_id) {
+            try {
+                await deleteFromCloudinary(request.file.public_id)
+            } catch (cleanupError) {
+                console.error("Error cleaning up uploaded file:", cleanupError)
+            }
+        }
+
         if (error instanceof ApiError) {
             return reply.code(error.statusCode).send(new ApiResponse(error.statusCode, {}, error.message))
         }
@@ -129,6 +176,18 @@ const deleteHeroSlide = async (request, reply) => {
 
         if (!deletedSlide) {
             throw new ApiError(404, "Hero slide not found")
+        }
+
+        // Delete associated image from Cloudinary
+        if (deletedSlide.image_url) {
+            const publicId = extractPublicId(deletedSlide.image_url)
+            if (publicId) {
+                try {
+                    await deleteFromCloudinary(publicId)
+                } catch (deleteError) {
+                    console.error("Error deleting image from Cloudinary:", deleteError)
+                }
+            }
         }
 
         return reply.code(200).send(new ApiResponse(200, {}, "Hero slide deleted successfully"))
@@ -152,7 +211,7 @@ const addTrendingCategory = async (request, reply) => {
         }
 
         // Verify category exists
-        const category = await StoreCategoryModel.find({ category_id })
+        const category = await StoreCategoryModel.findById(category_id)
         if (!category) {
             throw new ApiError(404, "Category not found")
         }
@@ -166,11 +225,11 @@ const addTrendingCategory = async (request, reply) => {
         const trendingCategory = new TrendingCategory({
             store_id: storeId,
             category_id,
-            display_order,
+            display_order: Number(display_order),
         })
 
         await trendingCategory.save()
-        await trendingCategory.populate("category_id", "name description image")
+        await trendingCategory.populate("category_id", "display_name description img_url")
 
         return reply.code(201).send(new ApiResponse(201, trendingCategory, "Trending category added successfully"))
     } catch (error) {
@@ -188,11 +247,15 @@ const updateTrendingCategory = async (request, reply) => {
         const storeId = request.user.store_id
         const { trending_id, display_order, category_id } = request.body
 
+        const updateData = {}
+        if (display_order !== undefined) updateData.display_order = Number(display_order)
+        if (category_id !== undefined) updateData.category_id = category_id
+
         const updatedTrending = await TrendingCategory.findOneAndUpdate(
             { _id: trending_id, store_id: storeId },
-            { $set: { display_order, category_id } },
+            { $set: updateData },
             { new: true },
-        )
+        ).populate("category_id", "display_name description img_url")
 
         if (!updatedTrending) {
             throw new ApiError(404, "Trending category not found")
@@ -255,7 +318,7 @@ const addTrendingProduct = async (request, reply) => {
         const trendingProduct = new TrendingProduct({
             store_id: storeId,
             product_id,
-            display_order,
+            display_order: Number(display_order),
         })
 
         await trendingProduct.save()
@@ -280,7 +343,7 @@ const updateTrendingProduct = async (request, reply) => {
 
         const updatedTrending = await TrendingProduct.findOneAndUpdate(
             { _id: trendingId, store_id: storeId },
-            { $set: { display_order } },
+            { $set: { display_order: Number(display_order) } },
             { new: true },
         ).populate("product_id", "name description price images stock ratings")
 
@@ -324,10 +387,16 @@ const removeTrendingProduct = async (request, reply) => {
 const createTestimonial = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { name, message, photo_url } = request.body
+        const { name, message } = request.body
 
         if (!name || !message) {
             throw new ApiError(400, "Name and message are required")
+        }
+
+        // Handle uploaded photo
+        let photo_url = null
+        if (request.file) {
+            photo_url = request.file.path || request.file.secure_url
         }
 
         const testimonial = new Testimonial({
@@ -342,6 +411,16 @@ const createTestimonial = async (request, reply) => {
         return reply.code(201).send(new ApiResponse(201, testimonial, "Testimonial created successfully"))
     } catch (error) {
         request.log?.error?.(error)
+
+        // Clean up uploaded file if testimonial creation fails
+        if (request.file && request.file.public_id) {
+            try {
+                await deleteFromCloudinary(request.file.public_id)
+            } catch (cleanupError) {
+                console.error("Error cleaning up uploaded file:", cleanupError)
+            }
+        }
+
         if (error instanceof ApiError) {
             return reply.code(error.statusCode).send(new ApiResponse(error.statusCode, {}, error.message))
         }
@@ -354,27 +433,64 @@ const updateTestimonial = async (request, reply) => {
     try {
         const storeId = request.user.store_id
         const { testimonialId } = request.params
-        const { name, message, photo_url } = request.body
+        const { name, message } = request.body
+
+        // Get existing testimonial
+        const existingTestimonial = await Testimonial.findOne({ _id: testimonialId, store_id: storeId })
+        if (!existingTestimonial) {
+            // Clean up uploaded file if testimonial doesn't exist
+            if (request.file && request.file.public_id) {
+                try {
+                    await deleteFromCloudinary(request.file.public_id)
+                } catch (cleanupError) {
+                    console.error("Error cleaning up uploaded file:", cleanupError)
+                }
+            }
+            throw new ApiError(404, "Testimonial not found")
+        }
+
+        const updateData = {
+            ...(name && { name }),
+            ...(message && { message }),
+        }
+
+        // Handle new photo upload
+        if (request.file) {
+            const newPhotoUrl = request.file.path || request.file.secure_url
+            updateData.photo_url = newPhotoUrl
+
+            // Delete old photo from Cloudinary
+            if (existingTestimonial.photo_url) {
+                const oldPublicId = extractPublicId(existingTestimonial.photo_url)
+                if (oldPublicId) {
+                    try {
+                        await deleteFromCloudinary(oldPublicId)
+                    } catch (deleteError) {
+                        console.error("Error deleting old photo:", deleteError)
+                    }
+                }
+            }
+        }
 
         const updatedTestimonial = await Testimonial.findOneAndUpdate(
             { _id: testimonialId, store_id: storeId },
-            {
-                $set: {
-                    ...(name && { name }),
-                    ...(message && { message }),
-                    ...(photo_url !== undefined && { photo_url }),
-                },
-            },
+            { $set: updateData },
             { new: true },
         )
-
-        if (!updatedTestimonial) {
-            throw new ApiError(404, "Testimonial not found")
-        }
 
         return reply.code(200).send(new ApiResponse(200, updatedTestimonial, "Testimonial updated successfully"))
     } catch (error) {
         request.log?.error?.(error)
+
+        // Clean up uploaded file if update fails
+        if (request.file && request.file.public_id) {
+            try {
+                await deleteFromCloudinary(request.file.public_id)
+            } catch (cleanupError) {
+                console.error("Error cleaning up uploaded file:", cleanupError)
+            }
+        }
+
         if (error instanceof ApiError) {
             return reply.code(error.statusCode).send(new ApiResponse(error.statusCode, {}, error.message))
         }
@@ -392,6 +508,18 @@ const deleteTestimonial = async (request, reply) => {
 
         if (!deletedTestimonial) {
             throw new ApiError(404, "Testimonial not found")
+        }
+
+        // Delete associated photo from Cloudinary
+        if (deletedTestimonial.photo_url) {
+            const publicId = extractPublicId(deletedTestimonial.photo_url)
+            if (publicId) {
+                try {
+                    await deleteFromCloudinary(publicId)
+                } catch (deleteError) {
+                    console.error("Error deleting photo from Cloudinary:", deleteError)
+                }
+            }
         }
 
         return reply.code(200).send(new ApiResponse(200, {}, "Testimonial deleted successfully"))
@@ -424,7 +552,7 @@ const getTrendingCategories = async (request, reply) => {
         const storeId = request.user.store_id
 
         const trendingCategories = await TrendingCategory.find({ store_id: storeId })
-            .populate("category_id", "name description image")
+            .populate("category_id", "display_name description img_url")
             .sort({ display_order: 1 })
 
         return reply.code(200).send(new ApiResponse(200, trendingCategories, "Trending categories fetched successfully"))

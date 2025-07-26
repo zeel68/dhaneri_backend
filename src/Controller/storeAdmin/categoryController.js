@@ -61,7 +61,7 @@ const addStoreCategory = async (req, res) => {
             store_id,
             is_primary,
             img_url,
-            display_name:category_name,
+            display_name: category_name,
             description,
             sort_order,
             is_active,
@@ -80,6 +80,37 @@ const addStoreCategory = async (req, res) => {
         }
         console.error("Error adding store category:", error);
         return res.status(500).send({ message: "Internal server error." });
+    }
+};
+
+// PATCH: Toggle category active status
+const toggleStoreCategoryStatus = async (request, reply) => {
+    try {
+        const { category_id } = request.params;
+        const store_id = request.user.store_id;
+        const { is_active } = request.body;
+
+        if (typeof is_active !== "boolean") {
+            return reply.code(400).send(new ApiResponse(400, {}, "is_active boolean flag is required"));
+        }
+
+        // Find and update the store category's active status
+        const updatedCategory = await StoreCategoryModel.findOneAndUpdate(
+            { _id: category_id, store_id },
+            { is_active },
+            { new: true }
+        );
+
+        if (!updatedCategory) {
+            return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));
+        }
+
+        return reply
+            .code(200)
+            .send(new ApiResponse(200, updatedCategory, "Store category status toggled successfully"));
+    } catch (error) {
+        request.log?.error?.(error);
+        return reply.code(500).send(new ApiResponse(500, {}, "Error toggling store category status"));
     }
 };
 
@@ -462,5 +493,6 @@ export {
     getProductsByCategoryValues,
     getProductsByTags,
     updateStoreCategory,
-    deleteStoreCategory
+    deleteStoreCategory,
+    toggleStoreCategoryStatus
 }

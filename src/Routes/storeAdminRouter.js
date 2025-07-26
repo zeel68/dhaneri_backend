@@ -9,7 +9,8 @@ import {
   getTagUsageStats,
   getTagValues,
   updateStoreCategory,
-  deleteStoreCategory
+  deleteStoreCategory,
+  toggleStoreCategoryStatus,
 } from "../Controller/storeAdmin/categoryController.js"
 import {
   getCustomerAnalytics,
@@ -96,6 +97,7 @@ import {
   trackWishlistEvent,
   endSession,
 } from "../Controller/storeAdmin/trackingController.js"
+import { uploadMultiple, uploadSingle, uploadFields } from "../Middleware/upload.middleware.js"
 
 export default async function storeAdminRoutes(fastify, options) {
   // Apply authentication and store owner verification to all routes
@@ -157,10 +159,10 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.put("/track/session/:session_id/end", endSession)
 
   // === PRODUCT MANAGEMENT ROUTES ===
-  fastify.post("/products", addProduct)
+  fastify.post("/products", { preHandler: uploadMultiple("images", 5) }, addProduct)
   fastify.get("/products", getStoreProducts)
   fastify.get("/products/:productId", getProductById)
-  fastify.put("/products/:productId", updateProduct)
+  fastify.put("/products/:productId", { preHandler: uploadMultiple("images", 5) }, updateProduct)
   fastify.delete("/products/:productId", deleteProduct)
   fastify.patch("/products/bulk-update", bulkUpdateProducts)
   fastify.get("/products/inventory/low-stock", getLowStockProducts)
@@ -169,7 +171,16 @@ export default async function storeAdminRoutes(fastify, options) {
 
   // === STORE CONFIGURATION ROUTES ===
   fastify.get("/store", getStoreDetails)
-  fastify.put("/store/config", updateStoreConfig)
+  fastify.put(
+    "/store/config",
+    {
+      preHandler: uploadFields([
+        { name: "store_logo", maxCount: 1 },
+        { name: "store_banner", maxCount: 1 },
+      ]),
+    },
+    updateStoreConfig,
+  )
   fastify.get("/store/config", getStoreConfig)
   fastify.put("/store/theme", updateStoreTheme)
   fastify.get("/store/theme", getStoreTheme)
@@ -179,8 +190,8 @@ export default async function storeAdminRoutes(fastify, options) {
   // === HOMEPAGE MANAGEMENT ROUTES ===
   fastify.get("/homepage/config", getHomepageConfig)
   fastify.get("/homepage/hero", getHeroSlides)
-  fastify.post("/homepage/hero", createHeroSlide)
-  fastify.put("/homepage/hero/:slideId", updateHeroSlide)
+  fastify.post("/homepage/hero", { preHandler: uploadSingle("hero_image") }, createHeroSlide)
+  fastify.put("/homepage/hero/:slideId", { preHandler: uploadSingle("hero_image") }, updateHeroSlide)
   fastify.post("/homepage/trendingCategory", addTrendingCategory)
   fastify.put("/homepage/trendingCategory", updateTrendingCategory)
   fastify.get("/homepage/trendingProducts", getTrendingProducts)
@@ -198,4 +209,5 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/products/filter/tag-values", getProductsByTagValues)
   fastify.put("/category/:category_id", updateStoreCategory)
   fastify.delete("/category/:category_id", deleteStoreCategory)
+  fastify.patch("/category/:category_id/status", toggleStoreCategoryStatus)
 }

@@ -132,4 +132,6 @@ export const getOptimizedImageUrl = (publicId, options = {}) => {
   return cloudinary.url(publicId, finalOptions)
 }
 
+
+
 export { cloudinary }
