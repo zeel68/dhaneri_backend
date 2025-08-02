@@ -31,10 +31,10 @@ const getStoreCategory = async (request, reply) => {
 const addStoreCategory = async (req, res) => {
     try {
         const {
-            category_id,
+            parent_id,
             img_url = "",
             is_primary = false,
-            category_name,
+            display_name,
             description,
             sort_order = 0,
             is_active = true,
@@ -42,9 +42,18 @@ const addStoreCategory = async (req, res) => {
         } = req.body;
 
         const store_id = req.user.store_id;
+
+        const store = await Store.findById(store_id)
+            .select("category_id");
+
+
         // Validate required fields
-        if (!store_id || !category_name) {
-            return res.status(400).send({ message: "category_id, store_id, and display_name are required." });
+        if (!store_id || !display_name) {
+            console.log(store_id);
+            console.log(category_name);
+
+
+            return res.status(400).send({ message: " store_id, and display_name are required.", store_id, category_name });
         }
 
         // Optional: Ensure only one primary category per store
@@ -54,14 +63,22 @@ const addStoreCategory = async (req, res) => {
                 return res.status(400).send({ message: "A primary category already exists for this store." });
             }
         }
-
+        let category_id = null;
+        if (!parent_id) {
+            category_id = store.category_id;
+        } else {
+            if (!category_id && !parent_id) {
+                return res.status(400).send({ message: "category_id or parentCategory required." });
+            }
+        }
         // // Create the new store category
         const newStoreCategory = new StoreCategoryModel({
             category_id,
+            parent_id,
             store_id,
             is_primary,
             img_url,
-            display_name: category_name,
+            display_name,
             description,
             sort_order,
             is_active,
@@ -114,24 +131,70 @@ const toggleStoreCategoryStatus = async (request, reply) => {
 const getStoreCategories = async (request, reply) => {
     const store_id = request.user?.store_id || request.body?.store_id || request.query?.store_id;
 
-    console.log(request.params);
     if (!store_id) {
         return reply.code(400).send(new ApiResponse(400, {}, "Store ID is required"));
     }
 
     try {
-        const categories = await StoreCategoryModel.find({ store_id });
+        const store = await Store.findById(store_id).select("category_id");
 
-        if (!categories || categories.length === 0) {
-            return reply.code(404).send(new ApiResponse(404, {}, "Categories not found"));
+        const parentCategories = await StoreCategoryModel.find({
+            store_id: store_id,
+            category_id: store.category_id,
+            parent_id: null,
+        });
+
+        if (!parentCategories.length) {
+            return reply.code(404).send(new ApiResponse(404, {}, "No categories found"));
         }
 
-        return reply.code(200).send(new ApiResponse(200, categories, "Store categories fetched successfully"));
+        const categoriesWithCounts = await Promise.all(
+            parentCategories.map(async (parent) => {
+                // Fetch subcategories
+                const subcategories = await StoreCategoryModel.find({
+                    store_id: store_id,
+                    parent_id: parent._id,
+                });
+
+                // Count products in parent category
+                const parentProductCount = await Product.countDocuments({
+                    store_id: store_id,
+                    category_id: parent._id,
+                });
+
+                // For each subcategory, count products
+                const subcategoriesWithCounts = await Promise.all(
+                    subcategories.map(async (sub) => {
+                        const subProductCount = await Product.countDocuments({
+                            store_id: store_id,
+                            category_id: sub._id,
+                        });
+
+                        return {
+                            ...sub.toObject(),
+                            product_count: subProductCount,
+                        };
+                    })
+                );
+
+                return {
+                    ...parent.toObject(),
+                    product_count: parentProductCount,
+                    subcategories: subcategoriesWithCounts,
+                };
+            })
+        );
+
+        return reply.code(200).send(new ApiResponse(200, categoriesWithCounts, "Store categories fetched successfully"));
     } catch (error) {
         console.error("Error fetching store categories:", error);
         return reply.code(500).send(new ApiResponse(500, {}, "Error fetching store categories"));
     }
 };
+
+
+
+
 
 
 const getAvailableTags = async (request, reply) => {
@@ -435,9 +498,18 @@ const getProductsByCategoryValues = async (request, reply) => {
 
 const updateStoreCategory = async (request, reply) => {
     try {
-        const { category_id } = request.params;
+        let { category_id } = request.params;
         const store_id = request.user.store_id;
         const updateData = request.body;
+
+        const store = await Store.findById(store_id)
+            .select("category_id");
+
+
+        //     if (!category_id && !parent_id) {
+        //         return res.status(400).send({ message: "category_id or parentCategory required." });
+        //     }
+        // }
 
         const category = await StoreCategoryModel.findOneAndUpdate(
             { _id: category_id, store_id },
