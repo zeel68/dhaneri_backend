@@ -176,6 +176,7 @@ const getStoreCategories = async (request, reply) => {
                         };
                     })
                 );
+                // Temp
 
                 return {
                     ...parent.toObject(),
