@@ -10,8 +10,8 @@ import mongoose from "mongoose"
 const addToCart = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { product_id, quantity = 1, variant_id } = request.body
-    const user_id = request.user?._id
+    const { product_id, quantity = 1, variant_id, session_id } = request.body
+    const user_id = request.user
     const clientIP = request.ip || request.headers["x-forwarded-for"]
 
     // Validate product
@@ -44,7 +44,6 @@ const addToCart = async (request, reply) => {
       }
     } else {
       // Anonymous user - use session
-      const session_id = request.headers["x-session-id"]
       if (!session_id) {
         return reply.code(400).send(new ApiResponse(400, {}, "Session ID required for anonymous users"))
       }
@@ -121,6 +120,8 @@ const getCart = async (request, reply) => {
     const session_id = request.headers["x-session-id"]
 
     let cart
+    console.log(user_id, session_id);
+
     if (user_id) {
       cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
     } else if (session_id) {

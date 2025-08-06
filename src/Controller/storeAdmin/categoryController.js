@@ -9,7 +9,8 @@ import mongoose from "mongoose";
 // GET: Fetch category assigned to the authenticated user's store
 const getStoreCategory = async (request, reply) => {
     try {
-        const store_id = request.body || request.user.store_id;
+        const store_id = request.user.store_id;
+        console.log(request.user);
 
         const store = await Store.findById(store_id)
             .populate("category_id", "name image_url tag_schema")
@@ -126,11 +127,30 @@ const toggleStoreCategoryStatus = async (request, reply) => {
     }
 };
 
+const getStoreCategoriesName = async (request, reply) => {
+    const store_id = request.user?.store_id || request.body?.store_id || request.query?.store_id;
+
+    if (!store_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Store ID is required"));
+    }
+
+    try {
+        const categories = await StoreCategoryModel.find({ store_id }).select("display_name -_id");
+
+        // Extract just the display_name values into a list
+        const categoryNames = categories.map(cat => cat.display_name);
+
+        return reply.code(200).send(new ApiResponse(200, categoryNames, "Store category names fetched successfully"));
+    } catch (error) {
+        console.error("Error fetching store categories:", error);
+        return reply.code(500).send(new ApiResponse(500, {}, "Error fetching store categories"));
+    }
+}
 
 
 const getStoreCategories = async (request, reply) => {
     const store_id = request.user?.store_id || request.body?.store_id || request.query?.store_id;
-
+    // temp change
     if (!store_id) {
         return reply.code(400).send(new ApiResponse(400, {}, "Store ID is required"));
     }
@@ -555,6 +575,7 @@ export {
     getStoreCategory,
     addStoreCategory,
     getStoreCategories,
+    getStoreCategoriesName,
     getAvailableTags,
     getProductsByTagValues,
     getTagUsageStats,

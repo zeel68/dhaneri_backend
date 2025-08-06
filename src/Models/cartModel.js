@@ -66,6 +66,10 @@ const cartSchema = new Schema({
         required: true,
         index: true
     },
+    coupon_id: {
+        type: Schema.Types.ObjectId,
+        ref: 'Coupon'
+    },
     items: [cartItemSchema], // Embedded cart items
     expires_at: {  // Recommended for cart expiration
         type: Date,

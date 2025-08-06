@@ -6,11 +6,11 @@ export const getLocationFromIP = async (ipAddress) => {
   try {
     // Check cache first
     const cacheKey = `location:${ipAddress}`
-    const cachedLocation = await cacheService.get(cacheKey)
+    // const cachedLocation = await cacheService.get(cacheKey)
 
-    if (cachedLocation) {
-      return cachedLocation
-    }
+    // if (cachedLocation) {
+    //   return cachedLocation
+    // }
 
     // Skip for local/private IPs
     if (isPrivateIP(ipAddress)) {
@@ -44,7 +44,7 @@ export const getLocationFromIP = async (ipAddress) => {
       }
 
       // Cache for 24 hours
-      await cacheService.set(cacheKey, locationData, 86400)
+      // await cacheService.set(cacheKey, locationData, 86400)
 
       return locationData
     }

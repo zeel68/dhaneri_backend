@@ -3,14 +3,14 @@ import { ApiResponse } from "../../utils/ApiResponse.js"
 import { Product } from "../../Models/productModel.js"
 import { Store } from "../../Models/storeModel.js"
 import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
-import {deleteFromCloudinary} from "../../utils/upload.js";
+import { deleteFromCloudinary } from "../../utils/upload.js";
 const addProduct = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category,image } = request.body
+        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, image } = request.body
 
-        if (!name?.trim() || !price || !category) {
-            return reply.code(400).send(new ApiResponse(400, {}, "Name, price, and category are required"))
+        if (!name?.trim() || !price) {
+            return reply.code(400).send(new ApiResponse(400, {}, "Name, price are required"))
         }
 
         // Verify the store exists and user has access

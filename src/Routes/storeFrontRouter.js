@@ -93,14 +93,14 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.get("/store/:store_id/products/:product_id", getStorefrontProductDetails)
 
   // Cart Routes
-  fastify.post("/store/:store_id/cart/add", addToCart)
-  fastify.get("/store/:store_id/cart", getCart)
+  fastify.post("/store/:store_id/cart/add", { preHandler: verifyJWT }, addToCart)
+  fastify.get("/store/:store_id/cart", { preHandler: verifyJWT }, getCart)
   fastify.put("/store/:store_id/cart/update", updateCartItem)
-  fastify.delete("/store/:store_id/cart/remove", removeCartItem)
-  fastify.delete("/store/:store_id/cart/clear", clearCart)
-  fastify.post("/store/:store_id/cart/coupon", applyCoupon)
-  fastify.post("/store/:store_id/cart/coupon/validate", validateCoupon)
-  fastify.delete("/store/:store_id/cart/coupon", removeCoupon)
+  fastify.delete("/store/:store_id/cart/remove", { preHandler: verifyJWT }, removeCartItem)
+  fastify.delete("/store/:store_id/cart/clear", { preHandler: verifyJWT }, clearCart)
+  fastify.post("/store/:store_id/cart/coupon", { preHandler: verifyJWT }, applyCoupon)
+  fastify.post("/store/:store_id/cart/coupon/validate", { preHandler: verifyJWT }, validateCoupon)
+  fastify.delete("/store/:store_id/cart/coupon", { preHandler: verifyJWT }, removeCoupon)
 
   // Wishlist Routes (require authentication)
   fastify.post("/store/:store_id/wishlist/add", addToWishlist)

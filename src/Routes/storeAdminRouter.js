@@ -11,6 +11,7 @@ import {
   updateStoreCategory,
   deleteStoreCategory,
   toggleStoreCategoryStatus,
+  getStoreCategoriesName,
 } from "../Controller/storeAdmin/categoryController.js"
 import {
   getCustomerAnalytics,
@@ -202,6 +203,7 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/category", getStoreCategory)
   fastify.post("/category", addStoreCategory)
   fastify.get("/getStoreCategories", getStoreCategories)
+  fastify.get("/getStoreCategoriesName", getStoreCategoriesName)
   fastify.get("/category/tags", getAvailableTags)
   fastify.get("/category/tags/stats", getTagUsageStats)
   fastify.get("/category/tags/:tagName/values", getTagValues)

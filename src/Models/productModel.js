@@ -27,12 +27,10 @@ const productSchema = new mongoose.Schema({
     parent_category: {
         type: Schema.Types.ObjectId,
         ref: 'Category',
-        required: true
     },
     category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'StoreCategory',
-        required: [true, "product category can't be null"],
     },
     store_id: {
         type: mongoose.Schema.Types.ObjectId,
