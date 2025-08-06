@@ -39,6 +39,8 @@ const productSchema = new mongoose.Schema({
     },
     reviews: [
         {
+            status: { type: String, enum: ['pending', 'published', 'hidden', 'approved'], default: 'published' },
+
             user: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'User'

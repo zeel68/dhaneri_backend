@@ -44,9 +44,9 @@ const addToCart = async (request, reply) => {
       }
     } else {
       // Anonymous user - use session
-      if (!session_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID required for anonymous users"))
-      }
+      // if (!session_id) {
+      //   return reply.code(400).send(new ApiResponse(400, {}, "Session ID required for anonymous users"))
+      // }
 
       cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
       if (!cart) {

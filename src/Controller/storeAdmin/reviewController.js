@@ -134,7 +134,7 @@ const updateReviewStatus = async (request, reply) => {
     const { status } = request.body
     const storeId = request.user.store_id
 
-    if (!status || !["pending", "published", "hidden"].includes(status)) {
+    if (!status || !["pending", "published", "hidden", "approved"].includes(status)) {
       return reply.code(400).send(new ApiResponse(400, {}, "Valid status is required"))
     }
 
