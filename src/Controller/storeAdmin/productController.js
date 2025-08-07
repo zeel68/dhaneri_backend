@@ -1,13 +1,13 @@
 // 1. Add Product to Store
 import { ApiResponse } from "../../utils/ApiResponse.js"
-import { Product } from "../../Models/productModel.js"
+import { Product, ProductVariant } from "../../Models/productModel.js"
 import { Store } from "../../Models/storeModel.js"
 import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
 import { deleteFromCloudinary } from "../../utils/upload.js";
 const addProduct = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, image } = request.body
+        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, images, varients } = request.body
 
         if (!name?.trim() || !price) {
             return reply.code(400).send(new ApiResponse(400, {}, "Name, price are required"))
@@ -19,22 +19,6 @@ const addProduct = async (request, reply) => {
             return reply.code(404).send(new ApiResponse(404, {}, "Store not found"))
         }
 
-        // Handle uploaded images
-        let images = []
-        if (image && image.length > 0) {
-            images = request.files.map((file) => ({
-                url: file.path || file.secure_url,
-                public_id: file.public_id || file.filename,
-                alt_text: `${name} image`,
-                is_primary: false,
-            }))
-
-            // Set first image as primary
-            if (images.length > 0) {
-                images[0].is_primary = true
-            }
-        }
-
         const product = await Product.create({
             name,
             description,
@@ -42,10 +26,11 @@ const addProduct = async (request, reply) => {
             category,
             parent_category,
             store_id: storeId,
-            attributes: attributes ? JSON.parse(attributes) : {},
-            stock: stock ? JSON.parse(stock) : { quantity: 0, status: "out_of_stock" },
+            attributes: attributes,
+            stock: stock,
             images,
-            tags: tags ? JSON.parse(tags) : [],
+            tags: tags,
+
             storeCategory,
         })
 
@@ -53,18 +38,6 @@ const addProduct = async (request, reply) => {
     } catch (error) {
         request.log?.error?.(error)
 
-        // Clean up uploaded files if product creation fails
-        if (request.files && request.files.length > 0) {
-            for (const file of request.files) {
-                if (file.public_id) {
-                    try {
-                        await deleteFromCloudinary(file.public_id)
-                    } catch (cleanupError) {
-                        console.error("Error cleaning up uploaded file:", cleanupError)
-                    }
-                }
-            }
-        }
 
         return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding the product"))
     }
@@ -154,6 +127,7 @@ const updateProduct = async (request, reply) => {
         const { productId } = request.params;
         const storeId = request.user.store_id;
         const updateData = { ...request.body, updated_at: new Date() };
+        console.log(updateData);
 
         // Parse JSON fields if they are strings
         if (updateData.attributes && typeof updateData.attributes === "string") {
@@ -191,7 +165,7 @@ const updateProduct = async (request, reply) => {
             updateData,
             { new: true }
         ).populate("category", "name");
-
+        
         return reply.code(200).send(new ApiResponse(200, updated, "Product updated successfully"));
     } catch (error) {
         request.log?.error?.(error);

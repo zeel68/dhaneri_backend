@@ -214,10 +214,6 @@ const getStoreCategories = async (request, reply) => {
 };
 
 
-
-
-
-
 const getAvailableTags = async (request, reply) => {
     try {
         const storeId = request.user.store_id
@@ -570,6 +566,41 @@ const deleteStoreCategory = async (request, reply) => {
     }
 };
 
+const assignProductsToCategory = async (request, reply) => {
+    try {
+        const { product_ids, category_id } = request.body;
+        const store_id = request.user.store_id;
+        console.log(product_ids, category_id);
+
+        if (!Array.isArray(product_ids) || !category_id || !store_id) {
+            return reply.code(400).send(new ApiResponse(400, {}, "Missing or invalid product_ids or category_id"));
+        }
+
+        const storeCategory = await StoreCategoryModel.findById(category_id);
+
+        if (!storeCategory) {
+            return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));
+        }
+
+        // Filter out products that already exist in the category
+        const existingProductsSet = new Set(storeCategory.products.map(id => id.toString()));
+        const newProducts = product_ids.filter(id => !existingProductsSet.has(id.toString()));
+
+        if (newProducts.length === 0) {
+            return reply.code(200).send(new ApiResponse(200, {}, "All provided products already exist in this category"));
+        }
+
+        // Add new products to the category
+        storeCategory.products.push(...newProducts);
+        await storeCategory.save();
+
+        return reply.code(200).send(new ApiResponse(200, storeCategory, "Products added to category successfully"));
+    } catch (error) {
+        request.log?.error?.(error);
+        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding products to category"));
+    }
+
+}
 
 export {
     getStoreCategory,
@@ -584,5 +615,6 @@ export {
     getProductsByTags,
     updateStoreCategory,
     deleteStoreCategory,
-    toggleStoreCategoryStatus
+    toggleStoreCategoryStatus,
+    assignProductsToCategory
 }

@@ -7,6 +7,7 @@ const getStoreCoupons = async (request, reply) => {
   try {
     const storeId = request.user.store_id
     const { page = 1, limit = 10, search, status, type, sort = "created_at", order = "desc" } = request.query
+    console.log(request.user);
 
     const skip = (page - 1) * limit
     const filter = { store_id: new mongoose.Types.ObjectId(storeId) }

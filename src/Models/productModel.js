@@ -171,7 +171,7 @@ const productVariantSchema = new Schema({
         type: Map,
         of: String
     },
-    price: { type: Number, required: true },
+    price: { type: Number },
     stock: { type: Number, default: 0 }
 }, { timestamps: true });
 

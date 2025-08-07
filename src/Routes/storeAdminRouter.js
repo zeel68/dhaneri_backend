@@ -12,6 +12,7 @@ import {
   deleteStoreCategory,
   toggleStoreCategoryStatus,
   getStoreCategoriesName,
+  assignProductsToCategory,
 } from "../Controller/storeAdmin/categoryController.js"
 import {
   getCustomerAnalytics,
@@ -46,7 +47,9 @@ import {
   createHeroSlide,
   getHeroSlides,
   getHomepageConfig,
+  getTrendingCategories,
   getTrendingProducts,
+  removeTrendingCategory,
   updateHeroSlide,
   updateTrendingCategory,
   updateTrendingProduct,
@@ -160,10 +163,10 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.put("/track/session/:session_id/end", endSession)
 
   // === PRODUCT MANAGEMENT ROUTES ===
-  fastify.post("/products", { preHandler: uploadMultiple("images", 5) }, addProduct)
+  fastify.post("/products", addProduct)
   fastify.get("/products", getStoreProducts)
   fastify.get("/products/:productId", getProductById)
-  fastify.put("/products/:productId", { preHandler: uploadMultiple("images", 5) }, updateProduct)
+  fastify.put("/products/:productId", updateProduct)
   fastify.delete("/products/:productId", deleteProduct)
   fastify.patch("/products/bulk-update", bulkUpdateProducts)
   fastify.get("/products/inventory/low-stock", getLowStockProducts)
@@ -191,10 +194,12 @@ export default async function storeAdminRoutes(fastify, options) {
   // === HOMEPAGE MANAGEMENT ROUTES ===
   fastify.get("/homepage/config", getHomepageConfig)
   fastify.get("/homepage/hero", getHeroSlides)
-  fastify.post("/homepage/hero", { preHandler: uploadSingle("hero_image") }, createHeroSlide)
-  fastify.put("/homepage/hero/:slideId", { preHandler: uploadSingle("hero_image") }, updateHeroSlide)
+  fastify.post("/homepage/hero", createHeroSlide)
+  fastify.put("/homepage/hero/:slideId", updateHeroSlide)
+  fastify.get("/homepage/trendingCategory", getTrendingCategories)
   fastify.post("/homepage/trendingCategory", addTrendingCategory)
   fastify.put("/homepage/trendingCategory", updateTrendingCategory)
+  fastify.delete("/homepage/trendingCategory/:trendingId", removeTrendingCategory)
   fastify.get("/homepage/trendingProducts", getTrendingProducts)
   fastify.post("/homepage/trendingProducts", addTrendingProduct)
   fastify.put("/homepage/trendingProducts/:trendingId", updateTrendingProduct)
@@ -202,6 +207,7 @@ export default async function storeAdminRoutes(fastify, options) {
   // === CATEGORY & TAG MANAGEMENT ROUTES ===
   fastify.get("/category", getStoreCategory)
   fastify.post("/category", addStoreCategory)
+  fastify.post("/assignProduct", assignProductsToCategory)
   fastify.get("/getStoreCategories", getStoreCategories)
   fastify.get("/getStoreCategoriesName", getStoreCategoriesName)
   fastify.get("/category/tags", getAvailableTags)

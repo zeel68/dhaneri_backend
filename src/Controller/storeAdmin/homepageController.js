@@ -4,7 +4,7 @@ import { Product } from "../../Models/productModel.js"
 import { HeroSlide, Testimonial, TrendingCategory, TrendingProduct } from "../../Models/homepageModel.js"
 import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
 import { deleteFromCloudinary } from "../../Middleware/upload.middleware.js"
-import {extractPublicId} from "../../utils/upload.js";
+import { extractPublicId } from "../../utils/upload.js";
 
 // 1. Get Homepage Configuration (Dynamic)
 const getHomepageConfig = async (request, reply) => {
@@ -49,13 +49,10 @@ const getHomepageConfig = async (request, reply) => {
 const createHeroSlide = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { title, subtitle, link, display_order = 0 } = request.body
+        const { title, subtitle, link, display_order = 0, image } = request.body
 
         // Handle uploaded image
-        let image_url = null
-        if (request.file) {
-            image_url = request.file.path || request.file.secure_url
-        }
+        let image_url = image
 
         if (!image_url) {
             return reply.code(400).send(new ApiResponse(400, {}, "Hero image is required"))
@@ -98,21 +95,13 @@ const updateHeroSlide = async (request, reply) => {
     try {
         const storeId = request.user.store_id
         const { slideId } = request.params
-        const { title, subtitle, link, display_order, is_active } = request.body
+        console.log(request.body);
+
+        const { title, subtitle, link, display_order, is_active, image } = request.body
 
         // Get existing slide to handle image replacement
         const existingSlide = await HeroSlide.findOne({ _id: slideId, store_id: storeId })
-        if (!existingSlide) {
-            // Clean up uploaded file if slide doesn't exist
-            if (request.file && request.file.public_id) {
-                try {
-                    await deleteFromCloudinary(request.file.public_id)
-                } catch (cleanupError) {
-                    console.error("Error cleaning up uploaded file:", cleanupError)
-                }
-            }
-            throw new ApiError(404, "Hero slide not found")
-        }
+
 
         const updateData = {
             ...(title !== undefined && { title }),
@@ -120,25 +109,10 @@ const updateHeroSlide = async (request, reply) => {
             ...(link !== undefined && { link }),
             ...(display_order !== undefined && { display_order: Number(display_order) }),
             ...(is_active !== undefined && { is_active: Boolean(is_active) }),
+            ...(image !== undefined && { image_url: image })
         }
 
-        // Handle new image upload
-        if (request.file) {
-            const newImageUrl = request.file.path || request.file.secure_url
-            updateData.image_url = newImageUrl
-
-            // Delete old image from Cloudinary
-            if (existingSlide.image_url) {
-                const oldPublicId = extractPublicId(existingSlide.image_url)
-                if (oldPublicId) {
-                    try {
-                        await deleteFromCloudinary(oldPublicId)
-                    } catch (deleteError) {
-                        console.error("Error deleting old image:", deleteError)
-                    }
-                }
-            }
-        }
+        console.log("update data", updateData);
 
         const updatedSlide = await HeroSlide.findOneAndUpdate(
             { _id: slideId, store_id: storeId },
@@ -204,6 +178,8 @@ const deleteHeroSlide = async (request, reply) => {
 const addTrendingCategory = async (request, reply) => {
     try {
         const storeId = request.user.store_id
+        console.log("request", request.body);
+
         const { category_id, display_order = 0 } = request.body
 
         if (!category_id) {
@@ -552,8 +528,8 @@ const getTrendingCategories = async (request, reply) => {
         const storeId = request.user.store_id
 
         const trendingCategories = await TrendingCategory.find({ store_id: storeId })
-            .populate("category_id", "display_name description img_url")
-            .sort({ display_order: 1 })
+        // .populate("category_id", "display_name description img_url")
+        // .sort({ display_order: 1 })
 
         return reply.code(200).send(new ApiResponse(200, trendingCategories, "Trending categories fetched successfully"))
     } catch (error) {
