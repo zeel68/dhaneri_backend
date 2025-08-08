@@ -90,8 +90,12 @@ const createCoupon = async (request, reply) => {
       applicable_categories,
     } = request.body
 
-    if (!code || !description || !type || !value) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Code, description, type, and value are required"))
+    if (!code || !description || !type) {
+      if (type != "free_shipping")
+        return reply.code(400).send(new ApiResponse(400, {}, "Code, description, type, and value are required"))
+      else if (!value)
+        return reply.code(400).send(new ApiResponse(400, {}, "Code, description, type,value are required"))
+
     }
 
     // Check if coupon code already exists for this store

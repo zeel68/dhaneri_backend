@@ -31,7 +31,6 @@ const couponSchema = new Schema(
     },
     value: {
       type: Number,
-      required: true,
       min: [0, "Value cannot be negative"],
     },
     minimum_order_amount: {
