@@ -44,35 +44,36 @@ const addStoreCategory = async (req, res) => {
 
         const store_id = req.user.store_id;
 
-        const store = await Store.findById(store_id)
-            .select("category_id");
-
-
-        // Validate required fields
         if (!store_id || !display_name) {
-            console.log(store_id);
-            console.log(category_name);
-
-
-            return res.status(400).send({ message: " store_id, and display_name are required.", store_id, category_name });
+            return res.status(400).send({
+                message: "store_id and display_name are required.",
+                store_id,
+                display_name
+            });
         }
 
-        // Optional: Ensure only one primary category per store
+        const store = await Store.findById(store_id).select("category_id");
+        if (!store) {
+            return res.status(404).send({ message: "Store not found." });
+        }
+
         if (is_primary) {
             const existingPrimary = await StoreCategoryModel.findOne({ store_id, is_primary: true });
             if (existingPrimary) {
                 return res.status(400).send({ message: "A primary category already exists for this store." });
             }
         }
-        let category_id = null;
+
+        let category_id;
         if (!parent_id) {
+            if (!store.category_id) {
+                return res.status(400).send({ message: "Root category_id is missing for this store." });
+            }
             category_id = store.category_id;
         } else {
-            if (!category_id && !parent_id) {
-                return res.status(400).send({ message: "category_id or parentCategory required." });
-            }
+            category_id = parent_id; // Or look up parent category
         }
-        // // Create the new store category
+
         const newStoreCategory = new StoreCategoryModel({
             category_id,
             parent_id,
@@ -88,18 +89,20 @@ const addStoreCategory = async (req, res) => {
 
         await newStoreCategory.save();
 
-        return res.status(201).send({ message: "Store category added successfully.", data: newStoreCategory });
+        return res.status(201).send({
+            message: "Store category added successfully.",
+            data: newStoreCategory
+        });
+
     } catch (error) {
-        console.error(error
-        );
+        console.error(error);
         if (error.code === 11000) {
-            // Handle unique index conflict (store_id + category_id)
             return res.status(409).send({ message: "This category is already added to the store." });
         }
-        console.error("Error adding store category:", error);
         return res.status(500).send({ message: "Internal server error." });
     }
 };
+
 
 // PATCH: Toggle category active status
 const toggleStoreCategoryStatus = async (request, reply) => {

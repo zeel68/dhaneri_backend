@@ -209,4 +209,6 @@ const deleteStore = async (request, reply) => {
   }
 }
 
+
+
 export { getAllStores, getStoreById, updateStoreStatus, deleteStore }

@@ -97,7 +97,7 @@ app.get("/", async (request, reply) => {
 // Register API routes
 app.register(authRoutes, { prefix: "/api/auth" })
 app.register(storeAdminRoutes, { prefix: "/api/store-admin" })
-app.register(superAdminRouter, { prefix: "/api/superAdmin" })
+app.register(superAdminRouter, { prefix: "/api/super-admin" })
 app.register(storefrontRoutes, { prefix: "/api/storefront" })
 
 
