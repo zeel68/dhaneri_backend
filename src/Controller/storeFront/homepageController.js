@@ -28,16 +28,10 @@ const getHomepageData = async (request, reply) => {
     const [heroSlides, trendingCategories, testimonials] = await Promise.all([
       HeroSlide.find({ store_id, is_active: true }).sort({ display_order: 1 }),
       TrendingCategory.find({ store_id })
-        .sort({ display_order: 1 })
-        .populate({
-          path: 'category_id',
-          model: 'StoreCategory',
-          populate: {
-            path: 'products',
-            model: 'Product',
-            select: 'name description price images stock ratings'
-          }
-        }),
+        // .sort({ display_order: 1 })
+        .populate(
+          "category_id"
+        ),
 
       // TrendingProduct.find({ store_id: storeId })
       //     .populate("product", "name description price images stock ratings")
@@ -126,4 +120,45 @@ const getStoreInfo = async (request, reply) => {
   }
 }
 
-export { getHomepageData, getHeroSection, getTestimonials, getStoreInfo }
+const getTrendingProducts = async (request, reply) => {
+  try {
+    const { storeId } = request.params
+    const trendingProducts = await TrendingProduct.find({ store_id: storeId })
+      .populate("product_id", "")
+    // .sort({ display_order: 1 })
+
+    return reply.code(200).send(new ApiResponse(200, trendingProducts, "Trending products fetched successfully"))
+  } catch (error) {
+    request.log?.error?.(error)
+    return reply.code(500).send(new ApiResponse(500, {}, "Error fetching trending products"))
+  }
+}
+const getTrendingCategories = async (request, reply) => {
+  try {
+    const { storeId } = request.params;
+    console.log("storeId:", storeId);
+
+    const trendingCategories = await TrendingCategory.find({
+      store_id: storeId,
+      category_id: { $ne: null } // filter out nulls
+    })
+      .populate("category_id", "display_name description img_url") // populate only valid categories
+      .sort({ display_order: 1 }); // optional: ensure proper order
+
+    // Remove any entries where populate failed (category was deleted)
+    const validCategories = trendingCategories.filter(tc => tc.category_id);
+
+    return reply
+      .code(200)
+      .send(new ApiResponse(200, validCategories, "Trending categories fetched successfully"));
+  } catch (error) {
+    request.log?.error?.(error.toString());
+    console.error(error);
+    return reply
+      .code(500)
+      .send(new ApiResponse(500, {}, "Error fetching trending categories"));
+  }
+};
+
+
+export { getHomepageData, getHeroSection, getTestimonials, getStoreInfo, getTrendingProducts, getTrendingCategories }

@@ -6,12 +6,14 @@ import {
   searchStorefrontProducts,
   getFeaturedProducts,
   getNewArrivals,
+  getProductBySlug,
 } from "../Controller/storeFront/productController.js"
 
 import {
   getStoreCategory,
   getCategorySubcategories,
   getCategoryAttributes,
+  getCategoryProducts,
 } from "../Controller/storeFront/categoryController.js"
 
 import {
@@ -62,7 +64,7 @@ import {
   deleteProductReview,
   getUserProductReview,
 } from "../Controller/storeFront/reviewController.js"
-import { getHomepageConfig } from "../Controller/storeAdmin/homepageController.js"
+import { getTrendingCategories, getTrendingProducts } from "../Controller/storeFront/homepageController.js"
 import { verifyJWT } from "../Middleware/auth.middleware.js"
 import {
   trackSession,
@@ -77,10 +79,13 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.get("/store/:store_id", getStoreInfo)
   fastify.get("/store/:store_id/homepage", getHomepageData)
   fastify.get("/store/:store_id/hero", getHeroSection)
-  fastify.get("/store/:store_id/testimonials", getTestimonials)
+  fastify.get("/store/:storeId/testimonials", getTestimonials)
+  fastify.get("/store/:storeId/trendingProducts", getTrendingProducts)
+  fastify.get("/store/:storeId/trendingCategory", getTrendingCategories)
 
   // Category Routes
   fastify.get("/store/:store_id/category", getStoreCategory)
+  fastify.get("/store/:store_id/category/:slug", getCategoryProducts)
   fastify.get("/store/:store_id/category/subcategories", getCategorySubcategories)
   fastify.get("/store/:store_id/category/attributes", getCategoryAttributes)
 
@@ -90,7 +95,7 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.get("/store/:store_id/products/new-arrivals", getNewArrivals)
   fastify.get("/store/:store_id/products/search", searchStorefrontProducts)
   fastify.get("/store/:store_id/products/filters", getStorefrontProductFilters)
-  fastify.get("/store/:store_id/products/:product_id", getStorefrontProductDetails)
+  fastify.get("/store/:store_id/products/:slug", getProductBySlug)
 
   // Cart Routes
   fastify.post("/store/:store_id/cart/add", { preHandler: verifyJWT }, addToCart)

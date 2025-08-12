@@ -37,6 +37,13 @@ const productSchema = new mongoose.Schema({
         ref: "Store",
         required: true
     },
+    slug: {
+        type: String,
+        required: true
+    },
+    compare_price: {
+        type: Number
+    },
     reviews: [
         {
             status: { type: String, enum: ['pending', 'published', 'hidden', 'approved'], default: 'published' },
@@ -122,7 +129,7 @@ const productSchema = new mongoose.Schema({
     availableTags: [String],
     searchFilters: Schema.Types.Mixed,
     displaySettings: Schema.Types.Mixed
-});
+}, { timestamps: true });
 productSchema.pre('save', async function (next) {
     try {
         // Calculate average rating

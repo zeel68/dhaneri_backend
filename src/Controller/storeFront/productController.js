@@ -1,3 +1,4 @@
+import { request } from "http"
 import { Product } from "../../Models/productModel.js"
 import { ProductView } from "../../Models/productViewModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
@@ -411,6 +412,28 @@ const getNewArrivals = async (request, reply) => {
   }
 }
 
+const getProductBySlug = async (request, reply) => {
+  try {
+    const { slug, store_id } = request.params;
+
+    if (!slug) {
+      return reply.code(400).send(new ApiResponse(400, {}, "slug is required"));
+    }
+
+    const productInfo = await Product.find({ slug: slug.toLowerCase() })
+    console.log(slug);
+
+    reply.status(200).send(
+      new ApiResponse(200, productInfo, "product fetched successfully")
+    );
+  } catch (err) {
+    console.error(err);
+    reply
+      .status(500)
+      .send(new ApiResponse(500, {}, "Error fetching category attributes"));
+  }
+};
+
 export {
   getStorefrontProducts,
   getStorefrontProductDetails,
@@ -418,4 +441,5 @@ export {
   searchStorefrontProducts,
   getFeaturedProducts,
   getNewArrivals,
+  getProductBySlug
 }

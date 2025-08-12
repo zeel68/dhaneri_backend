@@ -18,24 +18,41 @@ const helmetOptions = {
 }
 
 // CORS configuration
+// export const corsOptions = {
+//   // origin: (origin, callback) => {
+//   //   // Allow requests with no origin (like mobile apps or curl requests)
+//   //   if (!origin) return callback(null, true)
+
+//   //   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [
+//   //     "http://localhost:3000",
+//   //     "http://localhost:3001",
+//   //     "http://localhost:5173",
+//   //     "http://localhost:5174", "*"
+//   //   ]
+
+//   //   if (allowedOrigins.indexOf(origin) !== -1) {
+//   //     callback(null, true)
+//   //   } else {
+//   //     callback(new ApiError(403, "Not allowed by CORS"))
+//   //   }
+//   // },
+//   origin: true,
+//   credentials: true,
+//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//   allowedHeaders: [
+//     "Origin",
+//     "X-Requested-With",
+//     "Content-Type",
+//     "Accept",
+//     "Authorization",
+//     "X-API-Key",
+//     "X-Store-Domain",
+//   ],
+//   exposedHeaders: ["X-Total-Count", "X-Page-Count"],
+// }
+
 export const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true)
-
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:5173",
-      "http://localhost:5174",
-    ]
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true)
-    } else {
-      callback(new ApiError(403, "Not allowed by CORS"))
-    }
-  },
+  origin: true, // Allow all origins
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
@@ -49,6 +66,7 @@ export const corsOptions = {
   ],
   exposedHeaders: ["X-Total-Count", "X-Page-Count"],
 }
+
 
 // Apply security middleware
 export const applySecurity = (app) => {

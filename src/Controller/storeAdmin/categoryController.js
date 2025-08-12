@@ -34,6 +34,7 @@ const addStoreCategory = async (req, res) => {
         const {
             parent_id,
             img_url = "",
+            slug,
             is_primary = false,
             display_name,
             description,
@@ -44,40 +45,41 @@ const addStoreCategory = async (req, res) => {
 
         const store_id = req.user.store_id;
 
-        if (!store_id || !display_name) {
-            return res.status(400).send({
-                message: "store_id and display_name are required.",
-                store_id,
-                display_name
-            });
+        const store = await Store.findById(store_id)
+            .select("category_id");
+
+        // Validate required fields
+        if (!store_id || !display_name || !slug) {
+            console.log(store_id);
+
+
+            return res.status(400).send({ message: " store_id, and display_name,slug are required.", });
         }
 
-        const store = await Store.findById(store_id).select("category_id");
-        if (!store) {
-            return res.status(404).send({ message: "Store not found." });
-        }
-
+        // Optional: Ensure only one primary category per store
         if (is_primary) {
             const existingPrimary = await StoreCategoryModel.findOne({ store_id, is_primary: true });
             if (existingPrimary) {
                 return res.status(400).send({ message: "A primary category already exists for this store." });
             }
         }
-
-        let category_id;
+        let category_id = store.category_id;
         if (!parent_id) {
-            if (!store.category_id) {
-                return res.status(400).send({ message: "Root category_id is missing for this store." });
-            }
             category_id = store.category_id;
         } else {
-            category_id = parent_id; // Or look up parent category
+            if (!category_id && !parent_id) {
+                return res.status(400).send({ message: "category_id or parentCategory required." });
+            }
+            category_id = parent_id;
         }
 
+
+        // // Create the new store category
         const newStoreCategory = new StoreCategoryModel({
             category_id,
             parent_id,
             store_id,
+            slug,
             is_primary,
             img_url,
             display_name,
@@ -89,16 +91,15 @@ const addStoreCategory = async (req, res) => {
 
         await newStoreCategory.save();
 
-        return res.status(201).send({
-            message: "Store category added successfully.",
-            data: newStoreCategory
-        });
-
+        return res.status(201).send({ message: "Store category added successfully.", data: newStoreCategory });
     } catch (error) {
-        console.error(error);
+        console.error(error
+        );
         if (error.code === 11000) {
+            // Handle unique index conflict (store_id + category_id)
             return res.status(409).send({ message: "This category is already added to the store." });
         }
+        console.error("Error adding store category:", error);
         return res.status(500).send({ message: "Internal server error." });
     }
 };
@@ -108,6 +109,9 @@ const addStoreCategory = async (req, res) => {
 const toggleStoreCategoryStatus = async (request, reply) => {
     try {
         const { category_id } = request.params;
+        const { status } = request.body;
+        // console.log("req body", request.body);
+
         const store_id = request.user.store_id;
 
         // Fetch the current category
@@ -118,7 +122,7 @@ const toggleStoreCategoryStatus = async (request, reply) => {
         }
 
         // Toggle is_active value
-        category.is_active = !category.is_active;
+        category.is_active = status;
         await category.save();
 
         return reply
@@ -150,7 +154,6 @@ const getStoreCategoriesName = async (request, reply) => {
     }
 }
 
-
 const getStoreCategories = async (request, reply) => {
     const store_id = request.user?.store_id || request.body?.store_id || request.query?.store_id;
     // temp change
@@ -167,6 +170,7 @@ const getStoreCategories = async (request, reply) => {
             parent_id: null,
         });
 
+
         if (!parentCategories.length) {
             return reply.code(404).send(new ApiResponse(404, {}, "No categories found"));
         }
@@ -176,22 +180,17 @@ const getStoreCategories = async (request, reply) => {
                 // Fetch subcategories
                 const subcategories = await StoreCategoryModel.find({
                     store_id: store_id,
-                    parent_id: parent._id,
+                    category_id: parent._id,
                 });
 
                 // Count products in parent category
-                const parentProductCount = await Product.countDocuments({
-                    store_id: store_id,
-                    category_id: parent._id,
-                });
+                const parentProductCount = parent.products.length
+                console.log("prod", parentProductCount, parent._id);
 
                 // For each subcategory, count products
                 const subcategoriesWithCounts = await Promise.all(
                     subcategories.map(async (sub) => {
-                        const subProductCount = await Product.countDocuments({
-                            store_id: store_id,
-                            category_id: sub._id,
-                        });
+                        const subProductCount = sub.products.length
 
                         return {
                             ...sub.toObject(),
@@ -522,15 +521,6 @@ const updateStoreCategory = async (request, reply) => {
         const store_id = request.user.store_id;
         const updateData = request.body;
 
-        const store = await Store.findById(store_id)
-            .select("category_id");
-
-
-        //     if (!category_id && !parent_id) {
-        //         return res.status(400).send({ message: "category_id or parentCategory required." });
-        //     }
-        // }
-
         const category = await StoreCategoryModel.findOneAndUpdate(
             { _id: category_id, store_id },
             updateData,
@@ -586,15 +576,15 @@ const assignProductsToCategory = async (request, reply) => {
         }
 
         // Filter out products that already exist in the category
-        const existingProductsSet = new Set(storeCategory.products.map(id => id.toString()));
-        const newProducts = product_ids.filter(id => !existingProductsSet.has(id.toString()));
+        // const existingProductsSet = new Set(storeCategory.products.map(id => id.toString()));
+        // const newProducts = product_ids.filter(id => !existingProductsSet.has(id.toString()));
 
-        if (newProducts.length === 0) {
-            return reply.code(200).send(new ApiResponse(200, {}, "All provided products already exist in this category"));
-        }
+        // if (newProducts.length === 0) {
+        //     return reply.code(200).send(new ApiResponse(200, {}, "All provided products already exist in this category"));
+        // }
 
         // Add new products to the category
-        storeCategory.products.push(...newProducts);
+        storeCategory.products = product_ids;
         await storeCategory.save();
 
         return reply.code(200).send(new ApiResponse(200, storeCategory, "Products added to category successfully"));

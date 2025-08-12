@@ -83,6 +83,9 @@ const storeSchema = new Schema({
         ref: 'Category',
         required: true
     },
+    logo: {
+        type: String
+    },
     config: {
         type: Schema.Types.Mixed,
         default: {}

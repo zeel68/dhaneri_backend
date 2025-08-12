@@ -21,13 +21,13 @@ const heroSectionSchema = new Schema({
 });
 const trendingCategorySchema = new Schema({
     store_id: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
-    category_id: { type: Schema.Types.ObjectId, ref: 'StoreCategory', required: true },
+    category_id: { type: Schema.Types.ObjectId, ref: 'StoreCategory', index: true },
     display_order: { type: Number, default: 0 }
 }, { timestamps: true });
 
 const trendingProductSchema = new Schema({
     store_id: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
-    trending_category_id: { type: Schema.Types.ObjectId, ref: 'TrendingCategory', required: true },
+    product_id: { type: Schema.Types.ObjectId, ref: 'Product' },
     display_order: { type: Number, default: 0 }
 }, { timestamps: true });
 

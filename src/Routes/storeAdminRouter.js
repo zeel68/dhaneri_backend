@@ -30,6 +30,7 @@ import {
   getOutOfStockProducts,
   getProductById,
   getStoreProducts,
+  toggleProductStatus,
   updateProduct,
 } from "../Controller/storeAdmin/productController.js"
 import {
@@ -172,6 +173,7 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/products/inventory/low-stock", getLowStockProducts)
   fastify.get("/products/inventory/out-of-stock", getOutOfStockProducts)
   fastify.post("/products/addToCategory", addProductToCategory)
+  fastify.post("/products/:product_id/status", toggleProductStatus)
 
   // === STORE CONFIGURATION ROUTES ===
   fastify.get("/store", getStoreDetails)

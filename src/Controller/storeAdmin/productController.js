@@ -4,10 +4,13 @@ import { Product, ProductVariant } from "../../Models/productModel.js"
 import { Store } from "../../Models/storeModel.js"
 import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
 import { deleteFromCloudinary } from "../../utils/upload.js";
+import { response } from "express";
 const addProduct = async (request, reply) => {
     try {
         const storeId = request.user.store_id
-        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, images, varients } = request.body
+
+
+        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, images, varients, slug } = request.body
 
         if (!name?.trim() || !price) {
             return reply.code(400).send(new ApiResponse(400, {}, "Name, price are required"))
@@ -30,8 +33,9 @@ const addProduct = async (request, reply) => {
             stock: stock,
             images,
             tags: tags,
-
-            storeCategory,
+            varients,
+            category: storeCategory,
+            slug
         })
 
         return reply.code(201).send(new ApiResponse(201, product, "Product added successfully"))
@@ -165,7 +169,7 @@ const updateProduct = async (request, reply) => {
             updateData,
             { new: true }
         ).populate("category", "name");
-        
+
         return reply.code(200).send(new ApiResponse(200, updated, "Product updated successfully"));
     } catch (error) {
         request.log?.error?.(error);
@@ -184,7 +188,7 @@ const updateProduct = async (request, reply) => {
             }
         }
 
-        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while updating the product"));
+        return reply.code(500).send(new ApiResponse(500, { error }, "Something went wrong while updating the product"));
     }
 };
 
@@ -305,6 +309,34 @@ const addProductToCategory = async (request, reply) => {
     }
 }
 
+const toggleProductStatus = async (request, reply) => {
+    try {
+        const { product_id } = request.params;
+        const { status } = request.body;
+        // console.log("req body", request.body);
+
+        const store_id = request.user.store_id;
+
+        // Fetch the current category
+        const product = await Product.findOne({ _id: product_id, store_id });
+
+        if (!product) {
+            return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));
+        }
+
+        // Toggle is_active value
+        product.is_active = status;
+        await product.save();
+
+        return reply
+            .code(200)
+            .send(new ApiResponse(200, product, "Store category status toggled successfully"));
+    } catch (error) {
+        request.log?.error?.(error);
+        return reply.code(500).send(new ApiResponse(500, { msg: error.toString() }, "Error toggling store category status"));
+    }
+}
+
 export {
     getOutOfStockProducts,
     getStoreProducts,
@@ -315,4 +347,5 @@ export {
     addProduct,
     bulkUpdateProducts,
     addProductToCategory,
+    toggleProductStatus
 }

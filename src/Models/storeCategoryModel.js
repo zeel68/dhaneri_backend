@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose"
 const { Schema } = mongoose
 const attributeSchema = new Schema(
@@ -43,6 +44,10 @@ const storeCategorySchema = new Schema(
             ref: "Store",
             required: true,
         },
+        slug: {
+            type: String,
+            required: true
+        },
         is_primary: {
             type: Boolean,
             default: false,
@@ -53,8 +58,8 @@ const storeCategorySchema = new Schema(
                 ref: "Product",
             },
         ],
-        img_url : {
-            type:String
+        img_url: {
+            type: String
         },
         display_name: {
             type: String,
