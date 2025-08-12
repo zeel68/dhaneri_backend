@@ -100,7 +100,7 @@ const orderSchema = new Schema({
             city: { type: String, required: true },
             state: { type: String, required: true },
             country: { type: String, required: true },
-            postal_code: { type: String, required: true },
+            postal_code: { type: String },
             phone: { type: String }
         },
         required: true
