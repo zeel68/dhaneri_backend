@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 const { Schema } = mongoose
 
@@ -44,6 +45,18 @@ const productSchema = new mongoose.Schema({
     compare_price: {
         type: Number
     },
+    HSNCode: {
+        type: String
+    },
+    GST: {
+        type: Number
+    },
+    sku: {
+        type: String
+    },
+    brand: {
+        type: String
+    },
     reviews: [
         {
             status: { type: String, enum: ['pending', 'published', 'hidden', 'approved'], default: 'published' },
@@ -63,6 +76,9 @@ const productSchema = new mongoose.Schema({
             }
         }
     ],
+    variants: {
+        type: JSON
+    },
     attributes: {
         color: {
             type: [

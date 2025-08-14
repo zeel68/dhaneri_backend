@@ -4,17 +4,18 @@ import { CartEvent } from "../../Models/cartEventModel.js"
 import { WishlistEvent } from "../../Models/wishlistEventModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { ApiError } from "../../utils/ApiError.js"
-import {asyncHandler as AsyncHandler} from "../../utils/AsyncHandler.js";
+import { asyncHandler as AsyncHandler } from "../../utils/AsyncHandler.js";
 import { getLocationFromIP } from "../../utils/locationService.js"
 import { v4 as uuidv4 } from "uuid"
 
 // Track session start
 const trackSession = AsyncHandler(async (request, reply) => {
     const { store_id } = request.params
-    const {  user_agent, referrer, utm_params, device_info, screen_resolution } = request.body
+    const { user_agent, referrer, utm_params, device_info, screen_resolution } = request.body
     const session_id = uuidv4()
     const ip_address = request.ip || request.headers["x-forwarded-for"] || request.connection.remoteAddress
     const location = await getLocationFromIP(ip_address)
+    console.log("session Id", store_id);
 
     // Check if session already exists
     const existingSession = await SessionTracking.findOne({ session_id })
@@ -63,8 +64,8 @@ const trackSession = AsyncHandler(async (request, reply) => {
 // Track product view
 const trackProductView = AsyncHandler(async (request, reply) => {
     const { store_id, product_id } = request.params
-    const {  view_duration, scroll_depth, interactions, referrer } = request.body || {}
-    const session_id= request.body.session_id || request.cookies.session_id || uuidv4()
+    const { view_duration, scroll_depth, interactions, referrer } = request.body || {}
+    const session_id = request.body.session_id || request.cookies.session_id || uuidv4()
     console.log(request.body)
     const ip_address = request.ip || request.headers["x-forwarded-for"]
     const location = await getLocationFromIP(ip_address)
@@ -288,7 +289,7 @@ const endSession = AsyncHandler(async (request, reply) => {
 
 // Get session analytics
 const getSessionAnalytics = AsyncHandler(async (request, reply) => {
-    const { store_id } = request.params
+    const { store_id } = request.user
     const { start_date, end_date, group_by = "day", page = 1, limit = 10 } = request.query
 
     const matchStage = { store_id }
@@ -401,12 +402,13 @@ const getSessionAnalytics = AsyncHandler(async (request, reply) => {
 
 // Get real-time active sessions
 const getActiveSessions = AsyncHandler(async (request, reply) => {
-    const { store_id } = request.params
+    const { store_id } = request.user
     const { page = 1, limit = 20 } = request.query
+    console.log(request.params);
 
     const activeSessions = await SessionTracking.find({
         store_id,
-        is_active: true,
+        // is_active: true,
     })
         .populate("user_id", "name email")
         .sort({ session_start: -1 })
@@ -436,7 +438,7 @@ const getActiveSessions = AsyncHandler(async (request, reply) => {
 
 // Clean up inactive sessions
 const cleanupInactiveSessions = AsyncHandler(async (request, reply) => {
-    const { store_id } = request.params
+    const { store_id } = request.user
     const inactiveThreshold = new Date(Date.now() - 30 * 60 * 1000) // 30 minutes
 
     const result = await SessionTracking.updateMany(

@@ -27,6 +27,8 @@ const addToCart = async (request, reply) => {
     }
 
     // Check stock
+    console.log("Qty", product, quantity);
+
     if (product.stock.quantity < quantity) {
       return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"))
     }

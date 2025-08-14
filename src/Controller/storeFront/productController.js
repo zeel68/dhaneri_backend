@@ -416,23 +416,67 @@ const getProductBySlug = async (request, reply) => {
   try {
     const { slug, store_id } = request.params;
 
-    if (!slug) {
-      return reply.code(400).send(new ApiResponse(400, {}, "slug is required"));
+
+    const clientIP = request.ip || request.headers["x-forwarded-for"]
+    const user_id = request.user?._id
+    const session_id = request.headers["x-session-id"]
+
+    const product = await Product.findOne({
+      _id: product_id,
+      slug
+      // is_published: true,
+    })
+      // .populate("StoreCategory", "name description")
+      .populate("store_id", "name description contact_email")
+
+    if (!product) {
+      return reply.code(404).send(new ApiResponse(404, {}, "Product not found" + product_id))
     }
 
-    const productInfo = await Product.find({ slug: slug.toLowerCase() })
-    console.log(slug);
+    // Track product view
+    try {
+      const location = await getLocationFromIP(clientIP)
+      await ProductView.create({
+        store_id: new mongoose.Types.ObjectId(store_id),
+        product_id: new mongoose.Types.ObjectId(product_id),
+        user_id: user_id || null,
+        session_id: session_id || null,
+        ip_address: clientIP,
+        user_agent: request.headers["user-agent"],
+        location,
+        referrer: request.headers.referer || null,
+      })
+    } catch (trackingError) {
+      request.log?.warn?.("Failed to track product view:", trackingError)
+    }
 
-    reply.status(200).send(
-      new ApiResponse(200, productInfo, "product fetched successfully")
-    );
-  } catch (err) {
-    console.error(err);
-    reply
-      .status(500)
-      .send(new ApiResponse(500, {}, "Error fetching category attributes"));
+    // Get related products
+    const relatedProducts = await Product.find({
+      store_id: new mongoose.Types.ObjectId(store_id),
+      category_id: product.category_id,
+      _id: { $ne: product_id },
+      is_active: true,
+      is_published: true,
+    })
+      .limit(4)
+      .select("name price discount_price images")
+
+    return reply.code(200).send(
+      new ApiResponse(
+        200,
+        {
+          product,
+          related_products: relatedProducts,
+        },
+        "Product details fetched successfully",
+      ),
+    )
+  } catch (error) {
+    request.log?.error?.(error)
+    return reply.code(500).send(new ApiResponse(500, {}, "Error fetching product details"))
   }
-};
+}
+
 
 export {
   getStorefrontProducts,

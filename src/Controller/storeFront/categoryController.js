@@ -19,7 +19,7 @@ const getStoreCategory = async (request, reply) => {
     const parentCategories = await StoreCategoryModel.find({
       store_id: store_id,
       category_id: store.category_id,
-      parent_id: null,
+      // parent_id: null,
     }).populate("products");
 
 
@@ -37,7 +37,6 @@ const getStoreCategory = async (request, reply) => {
 
         // Count products in parent category
         const parentProductCount = parent.products.length
-        console.log("prod", parentProductCount, parent._id);
 
         // For each subcategory, count products
         const subcategoriesWithCounts = await Promise.all(

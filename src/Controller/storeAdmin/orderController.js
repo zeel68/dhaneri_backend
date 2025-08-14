@@ -18,7 +18,11 @@ const getStoreOrders = async (request, reply) => {
       order = "desc",
     } = request.query
 
-    const filter = { store_id: new mongoose.Types.ObjectId(storeId) }
+    const filter = { store_id: storeId }
+    console.log("Filters", filter);
+    const data = await Order.find({ storeId })
+    console.log("data", data);
+
 
     // Search filter
     if (search) {

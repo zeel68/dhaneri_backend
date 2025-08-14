@@ -4,6 +4,7 @@ import { Product } from "../../Models/productModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { generateOrderNumber } from "../../utils/helpers.js"
 import mongoose from "mongoose"
+import Razorpay from "razorpay"
 
 // Create new order
 const createOrder = async (request, reply) => {
@@ -11,6 +12,7 @@ const createOrder = async (request, reply) => {
     const { store_id } = request.params
     const { shipping_address, billing_address, payment_method, notes, use_cart = true } = request.body
     const user_id = request.user._id
+    console.log(user_id, store_id);
 
     if (!shipping_address) {
       return reply.code(400).send(new ApiResponse(400, {}, "Shipping address is required"))
@@ -23,8 +25,9 @@ const createOrder = async (request, reply) => {
       // Get items from user's cart
       const cart = await Cart.findOne({
         user_id,
-        store_id: new mongoose.Types.ObjectId(store_id),
+
       }).populate("items.product_id", "name price discount_price stock")
+
 
       if (!cart || cart.items.length === 0) {
         return reply.code(400).send(new ApiResponse(400, {}, "Cart is empty"))
@@ -125,11 +128,23 @@ const createOrder = async (request, reply) => {
       )
     }
 
-    const populatedOrder = await Order.findById(order._id)
+    let populatedOrder = await Order.findById(order._id)
       .populate("items.product_id", "name images")
       .populate("user_id", "name email phone_number")
+    const razorpayInstance = new Razorpay({
+      key_id: "rzp_test_2TD6bdPgMvp803",
+      key_secret: "3vHqucr88tmW6PqQmeBuii2N",
+    });
+    let response = await razorpayInstance.orders.create({
+      "amount": "100",
+      "currency": "INR",
+    })
 
-    return reply.code(201).send(new ApiResponse(201, { order: populatedOrder }, "Order created successfully"))
+
+    populatedOrder.razorpay_order_id = response.id
+    console.log("Data", populatedOrder.razorpay_order_id);
+
+    return reply.code(201).send(new ApiResponse(201, { order: populatedOrder, razorpay_order_id: response.id }, "Order created successfully"))
   } catch (error) {
     request.log?.error?.(error)
     return reply.code(500).send(new ApiResponse(500, {}, "Error creating order"))

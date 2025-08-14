@@ -314,6 +314,7 @@ const loginUser = asyncHandler(async (request, reply) => {
                 user.login_attempts.locked_until = new Date(now + LOCK_TIME)
             }
             await user.save()
+            console.log(password);
 
             return reply.code(401).send(new ApiResponse(401, {}, "Invalid password"))
         }
@@ -405,6 +406,7 @@ const refreshAccessToken = asyncHandler(async (request, reply) => {
         if (!user) {
             return reply.code(401).send(new ApiError(401, "Invalid refresh token"))
         }
+        console.log(user);
 
         if (incomingRefreshToken !== user?.refresh_token) {
             return reply.code(401).send(new ApiError(401, "Refresh token is expired or used"))

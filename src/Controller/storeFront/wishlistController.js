@@ -10,7 +10,9 @@ const addToWishlist = async (request, reply) => {
   try {
     const { store_id } = request.params
     const { product_id } = request.body
-    const user_id = request.user._id
+    console.log(request.user);
+
+    const user_id = request.user?.id ?? ""
     const clientIP = request.ip || request.headers["x-forwarded-for"]
 
     if (!product_id) {
@@ -20,9 +22,9 @@ const addToWishlist = async (request, reply) => {
     // Verify product exists and belongs to store
     const product = await Product.findOne({
       _id: product_id,
-      store_id: new mongoose.Types.ObjectId(store_id),
-      is_active: true,
-      is_published: true,
+      store_id: store_id,
+      // is_active: true,
+      // is_published: true,
     })
 
     if (!product) {
@@ -30,6 +32,7 @@ const addToWishlist = async (request, reply) => {
     }
 
     // Get user and update wishlist
+
     const user = await User.findById(user_id)
     if (!user) {
       return reply.code(404).send(new ApiResponse(404, {}, "User not found"))
@@ -80,7 +83,7 @@ const addToWishlist = async (request, reply) => {
 const getWishlist = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const user_id = request.user._id
+    const user_id = request.user.id
     const { page = 1, limit = 20 } = request.query
 
     const user = await User.findById(user_id).populate({

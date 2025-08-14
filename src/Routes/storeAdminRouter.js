@@ -103,6 +103,7 @@ import {
   endSession,
 } from "../Controller/storeAdmin/trackingController.js"
 import { uploadMultiple, uploadSingle, uploadFields } from "../Middleware/upload.middleware.js"
+import { getActiveSessions } from "../Controller/storeFront/sessionController.js"
 
 export default async function storeAdminRoutes(fastify, options) {
   // Apply authentication and store owner verification to all routes
@@ -154,6 +155,7 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/analytics/product-performance", getProductPerformanceAnalytics)
   fastify.get("/analytics/geographic", getGeographicAnalytics)
   fastify.get("/analytics/realtime", getRealTimeAnalytics)
+  fastify.get("/analytics/getActiveSessions", getActiveSessions)
   fastify.get("/analytics/conversion-funnel", getConversionFunnelAnalytics)
 
   // === TRACKING ROUTES ===
