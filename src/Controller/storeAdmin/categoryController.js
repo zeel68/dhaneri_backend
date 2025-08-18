@@ -134,7 +134,7 @@ const toggleStoreCategoryStatus = async (request, reply) => {
     }
 };
 
-const getStoreCategoriesName = async (request, reply) => {
+const getStoreAllCategories = async (request, reply) => {
     const store_id = request.user?.store_id || request.body?.store_id || request.query?.store_id;
 
     if (!store_id) {
@@ -142,12 +142,12 @@ const getStoreCategoriesName = async (request, reply) => {
     }
 
     try {
-        const categories = await StoreCategoryModel.find({ store_id }).select("display_name -_id");
+        const categories = await StoreCategoryModel.find({ store_id });
 
         // Extract just the display_name values into a list
-        const categoryNames = categories.map(cat => cat.display_name);
+        // const categoryNames = categories.map(cat => cat.display_name);
 
-        return reply.code(200).send(new ApiResponse(200, categoryNames, "Store category names fetched successfully"));
+        return reply.code(200).send(new ApiResponse(200, categories, "Store category names fetched successfully"));
     } catch (error) {
         console.error("Error fetching store categories:", error);
         return reply.code(500).send(new ApiResponse(500, {}, "Error fetching store categories"));
@@ -599,7 +599,7 @@ export {
     getStoreCategory,
     addStoreCategory,
     getStoreCategories,
-    getStoreCategoriesName,
+    getStoreAllCategories,
     getAvailableTags,
     getProductsByTagValues,
     getTagUsageStats,

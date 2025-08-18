@@ -11,8 +11,9 @@ import {
   updateStoreCategory,
   deleteStoreCategory,
   toggleStoreCategoryStatus,
-  getStoreCategoriesName,
+
   assignProductsToCategory,
+  getStoreAllCategories,
 } from "../Controller/storeAdmin/categoryController.js"
 import {
   getCustomerAnalytics,
@@ -103,6 +104,7 @@ import {
   endSession,
 } from "../Controller/storeAdmin/trackingController.js"
 import { uploadMultiple, uploadSingle, uploadFields } from "../Middleware/upload.middleware.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
 
 export default async function storeAdminRoutes(fastify, options) {
   // Apply authentication and store owner verification to all routes
@@ -174,7 +176,7 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/products/inventory/out-of-stock", getOutOfStockProducts)
   fastify.post("/products/addToCategory", addProductToCategory)
   fastify.post("/products/:product_id/status", toggleProductStatus)
-
+  fastify.get("/products/stats", (req, reply) => { return new ApiResponse(200, {}, "HEllo") })
   // === STORE CONFIGURATION ROUTES ===
   fastify.get("/store", getStoreDetails)
   fastify.put(
@@ -211,7 +213,7 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.post("/category", addStoreCategory)
   fastify.post("/assignProduct", assignProductsToCategory)
   fastify.get("/getStoreCategories", getStoreCategories)
-  fastify.get("/getStoreCategoriesName", getStoreCategoriesName)
+  fastify.get("/getStoreAllCategories", getStoreAllCategories)
   fastify.get("/category/tags", getAvailableTags)
   fastify.get("/category/tags/stats", getTagUsageStats)
   fastify.get("/category/tags/:tagName/values", getTagValues)

@@ -33,6 +33,8 @@ class EmailService {
       }
 
       await this.transporter.verify()
+
+
       console.log("✅ Email service initialized successfully")
     } catch (error) {
       console.error("❌ Email service initialization failed:", error)

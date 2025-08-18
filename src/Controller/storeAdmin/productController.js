@@ -10,12 +10,11 @@ const addProduct = async (request, reply) => {
         const storeId = request.user.store_id
 
 
-        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, images, varients, slug } = request.body
+        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, images, variants, slug, GST, HSNCode, brand, sku } = request.body
 
         if (!name?.trim() || !price) {
             return reply.code(400).send(new ApiResponse(400, {}, "Name, price are required"))
         }
-
         // Verify the store exists and user has access
         const store = await Store.findById(storeId)
         if (!store) {
@@ -33,15 +32,19 @@ const addProduct = async (request, reply) => {
             stock: stock,
             images,
             tags: tags,
-            varients,
-            category: storeCategory,
-            slug
+            variants,
+            slug,
+            GST,
+            HSNCode,
+            sku,
+            brand
         })
 
         return reply.code(201).send(new ApiResponse(201, product, "Product added successfully"))
     } catch (error) {
         request.log?.error?.(error)
 
+        console.log(error);
 
         return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding the product"))
     }
@@ -112,11 +115,12 @@ const getProductById = async (request, reply) => {
         const { productId } = request.params
         const storeId = request.user.store_id
 
-        const product = await Product.findOne({ _id: productId, store_id: storeId }).populate("category", "name")
+        let product = await Product.findOne({ _id: productId }).populate("category", "id")
 
         if (!product) {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
         }
+        product.category = product.category._id
 
         return reply.code(200).send(new ApiResponse(200, product, "Product fetched successfully"))
     } catch (error) {
@@ -347,5 +351,5 @@ export {
     addProduct,
     bulkUpdateProducts,
     addProductToCategory,
-    toggleProductStatus
+    toggleProductStatus,
 }

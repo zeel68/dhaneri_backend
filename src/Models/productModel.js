@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 const { Schema } = mongoose
 
@@ -23,6 +24,9 @@ const productSchema = new mongoose.Schema({
     price: {
         type: Number,
         required: [true, "product price can't be null or zero"],
+    },
+    cost_proce: {
+        type: Number
     },
     parent_category: {
         type: Schema.Types.ObjectId,
@@ -98,6 +102,15 @@ const productSchema = new mongoose.Schema({
             default: 0,
             required: [true, "Quantity is required"]
         },
+        track_inventory: {
+            type: Boolean
+        },
+        low_stock_threshold: {
+            type: Number
+        },
+        allow_backorder: {
+            type: Boolean
+        },
         reserved: {
             type: Number,
             default: 0
@@ -108,6 +121,9 @@ const productSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    variants: {
+        type: JSON
+    },
     tags: [{
         tagId: { type: Schema.Types.ObjectId, ref: 'Tag' },
         tagName: String,
@@ -115,7 +131,13 @@ const productSchema = new mongoose.Schema({
         value: Schema.Types.Mixed,
         category: String // StoreCategory enum value
     }],
-
+    HSNCode: { type: String },
+    GST: { type: String },
+    brand: { type: String },
+    sku: { type: String },
+    shipping: {
+        type: JSON
+    },
     ratings: {
         average: {
             type: Number,

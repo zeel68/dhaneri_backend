@@ -1,6 +1,6 @@
-import {User} from "../../Models/userModel.js";
-import {Product} from "../../Models/productModel.js";
-import {Order} from "../../Models/orderModel.js";
+import { User } from "../../Models/userModel.js";
+import { Product } from "../../Models/productModel.js";
+import { Order } from "../../Models/orderModel.js";
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import mongoose from "mongoose"
 
