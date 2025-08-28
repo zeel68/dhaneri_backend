@@ -181,12 +181,6 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/store", getStoreDetails)
   fastify.put(
     "/store/config",
-    {
-      preHandler: uploadFields([
-        { name: "store_logo", maxCount: 1 },
-        { name: "store_banner", maxCount: 1 },
-      ]),
-    },
     updateStoreConfig,
   )
   fastify.get("/store/config", getStoreConfig)

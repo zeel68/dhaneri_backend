@@ -20,7 +20,7 @@ const getStoreCategory = async (request, reply) => {
       store_id: store_id,
       category_id: store.category_id,
       parent_id: null,
-    }).populate("products");
+    }).populate("products", "name images proce id slug").sort({ sort_order: 1, name: 1 });
 
 
     if (!parentCategories.length) {
@@ -33,7 +33,8 @@ const getStoreCategory = async (request, reply) => {
         const subcategories = await StoreCategoryModel.find({
           store_id: store_id,
           category_id: parent._id,
-        });
+        }).populate("products", "name price images id slug").sort({ sort_order: 1, name: 1 });
+
 
         // Count products in parent category
         const parentProductCount = parent.products.length

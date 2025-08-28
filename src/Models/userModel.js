@@ -111,7 +111,7 @@ const userSchema = new Schema(
         },
         refresh_token: {
             type: String,
-            select: false,
+            select: false
         },
         cart: {
             type: Schema.Types.ObjectId,
@@ -162,25 +162,31 @@ const userSchema = new Schema(
         versionKey: false,
         toJSON: {
             virtuals: true,
-            transform: (doc, ret) => {
+            transform: (doc, ret, options) => {
                 delete ret.password
-                delete ret.refresh_token
+                if (!options.includeRefreshToken) {
+                    delete ret.refresh_token
+                }
                 delete ret.email_verification_otp
                 delete ret.password_reset_otp
                 delete ret.two_factor
                 return ret
-            },
+            }
+
         },
         toObject: {
             virtuals: true,
-            transform: (doc, ret) => {
+            transform: (doc, ret, options) => {
                 delete ret.password
-                delete ret.refresh_token
+                if (!options.includeRefreshToken) {
+                    delete ret.refresh_token
+                }
                 delete ret.email_verification_otp
                 delete ret.password_reset_otp
                 delete ret.two_factor
                 return ret
-            },
+            }
+
         },
     },
 )

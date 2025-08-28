@@ -1,7 +1,8 @@
 // Update Account Details
-import {asyncHandler} from "../utils/AsyncHandler.js";
-import {ApiError} from "../utils/ApiError.js";
-import {ApiResponse} from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/AsyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { User } from "../Models/userModel.js";
 
 const updateAccountDetails = asyncHandler(async (request, reply) => {
     const { name, phone_number, address } = request.body
@@ -50,4 +51,4 @@ const updateUserAvatar = asyncHandler(async (request, reply) => {
 })
 
 
-export {updateUserAvatar,updateAccountDetails}
+export { updateUserAvatar, updateAccountDetails }

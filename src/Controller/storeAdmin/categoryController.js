@@ -182,6 +182,10 @@ const getStoreCategories = async (request, reply) => {
                     store_id: store_id,
                     category_id: parent._id,
                 });
+                // console.log("parent", parent._id);
+
+                console.log("sub", subcategories.length);
+
 
                 // Count products in parent category
                 const parentProductCount = parent.products.length
@@ -203,7 +207,7 @@ const getStoreCategories = async (request, reply) => {
                 return {
                     ...parent.toObject(),
                     product_count: parentProductCount,
-                    subcategories: subcategoriesWithCounts,
+                    subcategories: subcategories,
                 };
             })
         );
@@ -526,6 +530,7 @@ const updateStoreCategory = async (request, reply) => {
             updateData,
             { new: true }
         );
+        console.log(category);
 
         if (!category) {
             return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));

@@ -115,7 +115,7 @@ const getProductById = async (request, reply) => {
         const { productId } = request.params
         const storeId = request.user.store_id
 
-        let product = await Product.findOne({ _id: productId }).populate("category", "id")
+        let product = await Product.findOne({ _id: productId }).populate("category", "_id")
 
         if (!product) {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
