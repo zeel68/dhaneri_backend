@@ -207,7 +207,7 @@ const getStoreCategories = async (request, reply) => {
                 return {
                     ...parent.toObject(),
                     product_count: parentProductCount,
-                    subcategories: subcategories,
+                    subcategories: subcategoriesWithCounts,
                 };
             })
         );

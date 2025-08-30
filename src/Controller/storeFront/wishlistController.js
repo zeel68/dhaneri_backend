@@ -9,11 +9,23 @@ import mongoose from "mongoose"
 const addToWishlist = async (request, reply) => {
   try {
     const { store_id } = request.params;
+    const session_id = request.headers["x-session-id"];
+    const clientIP = request.ip || request.headers["x-forwarded-for"];
     const { product_id, variant_id, size_id } = request.body;
 
-    const user_id = request.user?.id ?? "";
-    const clientIP = request.ip || request.headers["x-forwarded-for"];
+    let user_id;
+    console.log(request.body);
 
+
+    // Check user authentication if session_id is not provided
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id;
+
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
+      }
+    }
     if (!product_id) {
       return reply.code(400).send(new ApiResponse(400, {}, "Product ID is required"));
     }

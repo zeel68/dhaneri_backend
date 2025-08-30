@@ -1,9 +1,10 @@
 import { request } from "express"
 import { StoreCategoryModel as StoreCategory, StoreCategoryModel } from "../../Models/storeCategoryModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
-import mongoose from "mongoose"
+import mongoose, { model } from "mongoose"
 import { Product } from "../../Models/productModel.js"
 import { Store } from "../../Models/storeModel.js"
+import { populate } from "dotenv"
 
 // Get store categories for storefront
 const getStoreCategory = async (request, reply) => {
@@ -133,6 +134,15 @@ const getCategoryProducts = async (request, reply) => {
       .populate({
         path: "products", // populate the products array
         model: "Product",
+        populate: {
+          path: "variants", // populate the variants array within products
+          model: "ProductVariant",
+          populate: {
+            path: "sizes",
+            model: "ProductSizes"
+          }
+        }
+
 
       });
 
