@@ -137,7 +137,7 @@ const getCategoryProducts = async (request, reply) => {
       });
 
     reply.status(200).send(
-      new ApiResponse(200, categories, "categories fetched successfully")
+      new ApiResponse(200, categories, "categories product fetched successfully")
     );
   } catch (err) {
     console.error(err);

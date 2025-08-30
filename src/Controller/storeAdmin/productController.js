@@ -1,27 +1,71 @@
 // 1. Add Product to Store
 import { ApiResponse } from "../../utils/ApiResponse.js"
-import { Product, ProductVariant } from "../../Models/productModel.js"
+import { Product, ProductSizes, ProductVariant } from "../../Models/productModel.js"
 import { Store } from "../../Models/storeModel.js"
 import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
 import { deleteFromCloudinary } from "../../utils/upload.js";
 import { response } from "express";
 const addProduct = async (request, reply) => {
     try {
-        const storeId = request.user.store_id
+        const storeId = request.user.store_id;
+        const {
+            name,
+            description,
+            price,
+            category,
+            attributes,
+            stock,
+            tags,
+            storeCategory,
+            parent_category,
+            images,
+            variants,
+            slug
+        } = request.body;
 
-
-        const { name, description, price, category, attributes, stock, tags, storeCategory, parent_category, images, varients, slug } = request.body
-
-        if (!name?.trim() || !price) {
-            return reply.code(400).send(new ApiResponse(400, {}, "Name, price are required"))
+        if (!name?.trim()) {
+            return reply.code(400).send(new ApiResponse(400, {}, "Name and price are required"));
         }
 
-        // Verify the store exists and user has access
-        const store = await Store.findById(storeId)
+        // Verify the store exists
+        const store = await Store.findById(storeId);
         if (!store) {
-            return reply.code(404).send(new ApiResponse(404, {}, "Store not found"))
+            return reply.code(404).send(new ApiResponse(404, {}, "Store not found"));
         }
 
+        // --- Step 1: Insert Sizes ---
+        const allSizeDocs = [];
+        const variantSizeMapping = {}; // Maps original size UUID -> MongoDB _id
+
+        for (const variant of variants) {
+            for (const size of variant.sizes) {
+                const { id, ...sizeData } = size; // remove UUID
+                const sizeDoc = new ProductSizes(sizeData);
+                console.log("Hello", sizeData);
+
+                await sizeDoc.save();
+                allSizeDocs.push(sizeDoc);
+                variantSizeMapping[id] = sizeDoc._id; // map old UUID to new Mongo ID
+            }
+        }
+
+        // --- Step 2: Insert Variants ---
+        const variantDocs = [];
+        for (const variant of variants) {
+            const { id, sizes, ...variantData } = variant; // remove UUID
+
+            // Map size UUIDs to MongoDB _id
+            const sizeObjectIds = sizes.map(size => variantSizeMapping[size.id]);
+
+            const variantDoc = new ProductVariant({
+                ...variantData,
+                sizes: sizeObjectIds
+            });
+            await variantDoc.save();
+            variantDocs.push(variantDoc);
+        }
+
+        // --- Step 3: Insert Product-- -
         const product = await Product.create({
             name,
             description,
@@ -32,20 +76,18 @@ const addProduct = async (request, reply) => {
             attributes: attributes,
             stock: stock,
             images,
-            tags: tags,
-            varients,
-            category: storeCategory,
-            slug
-        })
+            tags,
+            slug,
+            variants: variantDocs.map(v => v._id),
+        });
 
-        return reply.code(201).send(new ApiResponse(201, product, "Product added successfully"))
+        return reply.code(201).send(new ApiResponse(201, product, "Product added successfully"));
     } catch (error) {
-        request.log?.error?.(error)
-
-
-        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding the product"))
+        request.log?.error?.(error);
+        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding the product"));
     }
-}
+};
+
 
 const getStoreProducts = async (request, reply) => {
     try {
@@ -81,7 +123,8 @@ const getStoreProducts = async (request, reply) => {
         sort[sortBy] = sortOrder === "desc" ? -1 : 1
 
         const [products, total] = await Promise.all([
-            Product.find(filter).populate("category", "name").sort(sort).skip(skip).limit(Number(limit)),
+            Product.find(filter).populate("category", "name").populate("variants").sort(sort).skip(skip).limit(Number(limit)),
+
             Product.countDocuments(filter),
         ])
 
@@ -112,12 +155,27 @@ const getProductById = async (request, reply) => {
         const { productId } = request.params
         const storeId = request.user.store_id
 
-        const product = await Product.findOne({ _id: productId, store_id: storeId }).populate("category", "name")
+        const product = await Product.findOne({ _id: productId, store_id: storeId })
+            .populate("category", "_id")
+            .populate({
+                path: "variants",
+                populate: {
+                    path: "sizes",
+                    model: "ProductSizes"
+                }
+            });
+
 
         if (!product) {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
         }
 
+
+        if (product.category) {
+            product.category = product.category._id
+        } else {
+            product.category = null
+        }
         return reply.code(200).send(new ApiResponse(200, product, "Product fetched successfully"))
     } catch (error) {
         request.log?.error?.(error)
@@ -131,17 +189,19 @@ const updateProduct = async (request, reply) => {
         const { productId } = request.params;
         const storeId = request.user.store_id;
         const updateData = { ...request.body, updated_at: new Date() };
-        console.log(updateData);
 
         // Parse JSON fields if they are strings
-        if (updateData.attributes && typeof updateData.attributes === "string") {
+        if (typeof updateData.attributes === "string") {
             updateData.attributes = JSON.parse(updateData.attributes);
         }
-        if (updateData.stock && typeof updateData.stock === "string") {
+        if (typeof updateData.stock === "string") {
             updateData.stock = JSON.parse(updateData.stock);
         }
-        if (updateData.tags && typeof updateData.tags === "string") {
+        if (typeof updateData.tags === "string") {
             updateData.tags = JSON.parse(updateData.tags);
+        }
+        if (typeof updateData.variants === "string") {
+            updateData.variants = JSON.parse(updateData.variants);
         }
 
         // Fetch existing product
@@ -150,31 +210,67 @@ const updateProduct = async (request, reply) => {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"));
         }
 
-        // Handle new uploaded images (only keep public URLs)
+        // Optional: clean up old variants and sizes
+        if (existingProduct.variants?.length > 0) {
+            const oldVariants = await ProductVariant.find({ _id: { $in: existingProduct.variants } });
+            for (const variant of oldVariants) {
+                await ProductSizes.deleteMany({ _id: { $in: variant.sizes } });
+            }
+            await ProductVariant.deleteMany({ _id: { $in: existingProduct.variants } });
+        }
+
+        // Handle image merging
         if (updateData.image && Array.isArray(updateData.image) && updateData.image.length > 0) {
             const newImageUrls = updateData.image
                 .map((file) => file?.path || file?.secure_url)
                 .filter((url) => typeof url === "string" && url.trim().length > 0);
-
             updateData.images = [...(existingProduct.images || []), ...newImageUrls];
         }
 
-        // Final safeguard: ensure images is an array of strings
         if (updateData.images && Array.isArray(updateData.images)) {
             updateData.images = updateData.images.filter((url) => typeof url === "string" && url.trim());
         }
 
-        const updated = await Product.findOneAndUpdate(
-            { _id: productId, store_id: storeId },
-            updateData,
-            { new: true }
-        ).populate("category", "name");
+        // Create new sizes and variants
+        const variantSizeMapping = {}; // uuid -> ObjectId
+        const variantDocs = [];
 
-        return reply.code(200).send(new ApiResponse(200, updated, "Product updated successfully"));
+        for (const variant of updateData.variants || []) {
+            const { sizes = [], id, ...variantData } = variant;
+
+            const sizeObjectIds = [];
+            for (const size of sizes) {
+                const { id, ...sizeData } = size;
+                const sizeDoc = new ProductSizes(sizeData);
+                await sizeDoc.save();
+                variantSizeMapping[size.id] = sizeDoc._id;
+                sizeObjectIds.push(sizeDoc._id);
+            }
+
+            const variantDoc = new ProductVariant({
+                ...variantData,
+                sizes: sizeObjectIds,
+            });
+
+            await variantDoc.save();
+            variantDocs.push(variantDoc._id);
+        }
+
+        // Update product
+        const updatedProduct = await Product.findOneAndUpdate(
+            { _id: productId, store_id: storeId },
+            {
+                ...updateData,
+                variants: variantDocs,
+            },
+            { new: true }
+        ).populate("category", "name").populate("variants");
+
+        return reply.code(200).send(new ApiResponse(200, updatedProduct, "Product updated successfully"));
     } catch (error) {
         request.log?.error?.(error);
 
-        // Cleanup: delete newly uploaded images if update fails
+        // Cleanup newly uploaded images if update fails
         const { image } = request.body;
         if (image && Array.isArray(image)) {
             for (const file of image) {
@@ -188,9 +284,10 @@ const updateProduct = async (request, reply) => {
             }
         }
 
-        return reply.code(500).send(new ApiResponse(500, { error }, "Something went wrong while updating the product"));
+        return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while updating the product"));
     }
 };
+
 
 // 5. Delete Product
 const deleteProduct = async (request, reply) => {

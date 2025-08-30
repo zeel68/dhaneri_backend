@@ -120,7 +120,7 @@ const getStorefrontProducts = async (request, reply) => {
     sort[sortBy] = sortOrder === "desc" ? -1 : 1
 
     const [products, total] = await Promise.all([
-      Product.find(filter).populate("category", "name").sort(sort).skip(skip).limit(Number(limit)),
+      Product.find(filter).populate("category", "name").populate("variants").sort(sort).skip(skip).limit(Number(limit)),
       Product.countDocuments(filter),
     ])
 
@@ -422,7 +422,6 @@ const getProductBySlug = async (request, reply) => {
     const session_id = request.headers["x-session-id"]
 
     const product = await Product.findOne({
-      _id: product_id,
       slug
       // is_published: true,
     })
@@ -430,15 +429,16 @@ const getProductBySlug = async (request, reply) => {
       .populate("store_id", "name description contact_email")
 
     if (!product) {
-      return reply.code(404).send(new ApiResponse(404, {}, "Product not found" + product_id))
+      return reply.code(404).send(new ApiResponse(404, {}, "Product not found" + slug))
     }
+    console.log(product);
 
     // Track product view
     try {
       const location = await getLocationFromIP(clientIP)
       await ProductView.create({
         store_id: new mongoose.Types.ObjectId(store_id),
-        product_id: new mongoose.Types.ObjectId(product_id),
+        product_id: new mongoose.Types.ObjectId(product._id),
         user_id: user_id || null,
         session_id: session_id || null,
         ip_address: clientIP,
@@ -454,7 +454,7 @@ const getProductBySlug = async (request, reply) => {
     const relatedProducts = await Product.find({
       store_id: new mongoose.Types.ObjectId(store_id),
       category_id: product.category_id,
-      _id: { $ne: product_id },
+      _id: { $ne: product._id },
       is_active: true,
       is_published: true,
     })

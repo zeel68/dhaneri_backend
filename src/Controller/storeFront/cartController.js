@@ -5,20 +5,35 @@ import { CartEvent } from "../../Models/cartEventModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { getLocationFromIP } from "../../utils/locationService.js"
 import mongoose from "mongoose"
+import { verifyJWT } from "../../Middleware/auth.middleware.js"
 
 // Add item to cart
 const addToCart = async (request, reply) => {
+  console.log("add to cart called");
+
   try {
+
     const { store_id } = request.params
-    const { product_id, quantity = 1, variant_id, session_id } = request.body
-    const user_id = request.user
+    const session_id = request.headers["x-session-id"]
+    console.log("session_id", session_id);
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+      }
+    }
+
+    const { product_id, quantity = 1, variant_id } = request.body
     const clientIP = request.ip || request.headers["x-forwarded-for"]
+    console.log(product_id, quantity, variant_id, user_id, session_id);
 
     // Validate product
     const product = await Product.findOne({
       _id: product_id,
       store_id: store_id,
-      is_active: true,
+      // is_active: true,
       // is_published: true,
     })
 
@@ -69,9 +84,11 @@ const addToCart = async (request, reply) => {
     if (existingItemIndex > -1) {
       cart.items[existingItemIndex].quantity += quantity
     } else {
+      console.log("\n\n\n\n", variant_id);
+
       cart.items.push({
-        product_id: new mongoose.Types.ObjectId(product_id),
-        variant_id: variant_id ? new mongoose.Types.ObjectId(variant_id) : null,
+        product_id: product_id,
+        variant_id: variant_id ? variant_id : null,
         quantity,
         price_at_addition: product.discount_price || product.price,
         price: product.discount_price || product.price,
@@ -104,12 +121,13 @@ const addToCart = async (request, reply) => {
       request.log?.warn?.("Failed to track cart event:", trackingError)
     }
 
-    const populatedCart = await Cart.findById(cart._id).populate("items.product_id", "name price images discount_price")
+    let populatedCart = await Cart.findById(cart._id).populate("items.product_id", "name price images discount_price")
+    populatedCart.session_id = session_id;
 
     return reply.code(200).send(new ApiResponse(200, { cart: populatedCart }, "Item added to cart successfully"))
   } catch (error) {
     request.log?.error?.(error)
-    console.warn(error)
+    console.log(error)
     return reply.code(500).send(new ApiResponse(500, {}, "Error adding item to cart"))
   }
 }
@@ -118,11 +136,18 @@ const addToCart = async (request, reply) => {
 const getCart = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const user_id = request.user?._id
     const session_id = request.headers["x-session-id"]
+    console.log("session_id", session_id);
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+      }
+    }
 
     let cart
-    console.log(user_id, session_id);
 
     if (user_id) {
       cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
@@ -134,9 +159,44 @@ const getCart = async (request, reply) => {
       return reply.code(200).send(new ApiResponse(200, { cart: { items: [], subtotal: 0, total: 0 } }, "Cart is empty"))
     }
 
-    const populatedCart = await Cart.findById(cart._id)
-      .populate("items.product_id", "name price images discount_price stock")
+    let populatedCart = await Cart.findById(cart._id)
+      .populate("items.product_id", "name price images discount_price stock variants")
       .populate("coupon_id", "code discount_type discount_value")
+
+    // populatedCart.items.forEach(item => {
+    //   let temp = item.product_id.variants.forEach((variant) => {
+
+    //     // variant.sizes.filter((size) => {
+    //     //   if (size.id == item.variant_id) {
+    //     //     console.log("size", size);
+    //     //     let temp_variant = variant
+    //     //     temp_variant.sizes = variant.sizes.filter((s) => s.id == item.variant_id)[0]
+
+    //     //     item.selectedVariant = temp_variant
+    //     //   }
+
+    //     // });
+    //     let a = variant.sizes.filter((size) => size.id == item.variant_id
+
+    //     );
+    //     console.log((a));
+    //     variant.sizes = a
+
+    //   })
+    //   item.product_id.variants = item.product_id.variants.filter((variant) => variant.sizes.length > 0)
+
+
+
+    //   // let b = temp.filter((variant) => variant.sizes.length > 0)
+    //   // console.log("b", a);
+
+
+
+    // })
+
+    // populatedCart.items.product_id.variants = populatedCart.items.product_id.variants.filter((variant) => variant.id === populatedCart.items.variant_id)
+
+    populatedCart.session_id = session_id;
 
     return reply.code(200).send(new ApiResponse(200, { cart: populatedCart }, "Cart fetched successfully"))
   } catch (error) {

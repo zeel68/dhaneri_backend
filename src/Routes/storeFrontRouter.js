@@ -98,8 +98,8 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.get("/store/:store_id/products/:slug", getProductBySlug)
 
   // Cart Routes
-  fastify.post("/store/:store_id/cart/add", { preHandler: verifyJWT }, addToCart)
-  fastify.get("/store/:store_id/cart", { preHandler: verifyJWT }, getCart)
+  fastify.post("/store/:store_id/cart/add", addToCart)
+  fastify.get("/store/:store_id/cart", getCart)
   fastify.put("/store/:store_id/cart/update", updateCartItem)
   fastify.delete("/store/:store_id/cart/remove", { preHandler: verifyJWT }, removeCartItem)
   fastify.delete("/store/:store_id/cart/clear", { preHandler: verifyJWT }, clearCart)
@@ -143,5 +143,5 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.post("/store/:store_id/product/:product_id/view", trackProductView)
   fastify.post("/store/:store_id/cart/event", trackCartEvent)
   fastify.post("/store/:store_id/wishlist/event", trackWishlistEvent)
-  fastify.put("/store/:store_id/session/:session_id/end", endSession)
+  fastify.post("/store/:store_id/session/:session_id/end", endSession)
 }

@@ -63,6 +63,7 @@ export const corsOptions = {
     "Authorization",
     "X-API-Key",
     "X-Store-Domain",
+    "x-session-id",
   ],
   exposedHeaders: ["X-Total-Count", "X-Page-Count"],
 }

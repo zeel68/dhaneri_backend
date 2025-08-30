@@ -11,7 +11,7 @@ const orderItemSchema = new Schema({
     },
     variant_id: {
         type: Schema.Types.ObjectId,
-        ref: 'ProductVariant',
+
         index: true
     },
     quantity: {
@@ -186,9 +186,9 @@ orderSchema.pre('save', async function (next) {
         if (!productExists) throw new Error(`Product ${item.product_id} does not exist`);
 
         if (item.variant_id) {
-            const variantExists = await mongoose.model('ProductVariant').exists({
-                _id: item.variant_id,
-                product_id: item.product_id
+            const variantExists = await mongoose.model('product').exists({
+                _id: item.product_id,
+                // product_id: item.product_id
             });
             if (!variantExists) throw new Error(`Variant ${item.variant_id} does not exist for product ${item.product_id}`);
         }

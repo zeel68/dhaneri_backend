@@ -210,9 +210,11 @@ export default async function storeAdminRoutes(fastify, options) {
 
   // === CATEGORY & TAG MANAGEMENT ROUTES ===
   fastify.get("/category", getStoreCategory)
+  fastify.get("/getAllCategories", getStoreAllCategories)
   fastify.post("/category", addStoreCategory)
-  fastify.post("/assignProduct", assignProductsToCategory)
   fastify.get("/getStoreCategories", getStoreCategories)
+  fastify.post("/assignProduct", assignProductsToCategory)
+  // fastify.get("/getStoreCategories", getStoreCategories)
   fastify.get("/getStoreCategoriesName", getStoreCategoriesName)
   fastify.get("/category/tags", getAvailableTags)
   fastify.get("/category/tags/stats", getTagUsageStats)

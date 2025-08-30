@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
@@ -10,8 +11,7 @@ const cartItemSchema = new Schema({
         index: true
     },
     variant_id: {
-        type: Schema.Types.ObjectId,
-        ref: 'ProductVariant'
+        type: String,
     },
     quantity: {
         type: Number,
@@ -46,25 +46,27 @@ cartItemSchema.virtual('product_details', {
 });
 
 // Virtual for variant details
-cartItemSchema.virtual('variant_details', {
-    ref: 'ProductVariant',
-    localField: 'variant_id',
-    foreignField: '_id',
-    justOne: true
-});
+// cartItemSchema.virtual('variant_details', {
+//     ref: 'ProductVariant',
+//     localField: 'variant_id',
+//     foreignField: '_id',
+//     justOne: true
+// });
 
 // Cart Schema
 const cartSchema = new Schema({
     user_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
-        unique: true,
     },
     store_id: {
         type: Schema.Types.ObjectId,
         ref: 'Store',
         required: true,
         index: true
+    },
+    session_id: {
+        type: String,
     },
     coupon_id: {
         type: Schema.Types.ObjectId,
@@ -86,12 +88,12 @@ const cartSchema = new Schema({
 });
 
 // Virtual for user details
-cartSchema.virtual('user_details', {
-    ref: 'User',
-    localField: 'user_id',
-    foreignField: '_id',
-    justOne: true
-});
+// cartSchema.virtual('user_details', {
+//     ref: 'User',
+//     localField: 'user_id',
+//     foreignField: '_id',
+//     justOne: true
+// });
 
 // Virtual for store details
 cartSchema.virtual('store_details', {
@@ -135,13 +137,13 @@ cartSchema.pre('save', async function (next) {
         const productExists = await mongoose.model('Product').exists({ _id: item.product_id });
         if (!productExists) throw new Error(`Product ${item.product_id} does not exist`);
 
-        if (item.variant_id) {
-            const variantExists = await mongoose.model('ProductVariant').exists({
-                _id: item.variant_id,
-                product_id: item.product_id
-            });
-            if (!variantExists) throw new Error(`Variant ${item.variant_id} does not exist for product ${item.product_id}`);
-        }
+        // if (item.variant_id) {
+        //     const variantExists = await mongoose.model('').exists({
+        //         _id: item.variant_id,
+        //         product_id: item.product_id
+        //     });
+        //     if (!variantExists) throw new Error(`Variant ${item.variant_id} does not exist for product ${item.product_id}`);
+        // }
     }
 
     next();
