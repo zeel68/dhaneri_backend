@@ -8,76 +8,78 @@ import mongoose from "mongoose"
 // Add product to wishlist
 const addToWishlist = async (request, reply) => {
   try {
-    const { store_id } = request.params
-    const { product_id } = request.body
-    console.log(request.user);
+    const { store_id } = request.params;
+    const { product_id, variant_id, size_id } = request.body;
 
-    const user_id = request.user?.id ?? ""
-    const clientIP = request.ip || request.headers["x-forwarded-for"]
+    const user_id = request.user?.id ?? "";
+    const clientIP = request.ip || request.headers["x-forwarded-for"];
 
     if (!product_id) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Product ID is required"))
+      return reply.code(400).send(new ApiResponse(400, {}, "Product ID is required"));
     }
 
-    // Verify product exists and belongs to store
     const product = await Product.findOne({
       _id: product_id,
       store_id: store_id,
-      // is_active: true,
-      // is_published: true,
-    })
+    });
 
     if (!product) {
-      return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
+      return reply.code(404).send(new ApiResponse(404, {}, "Product not found"));
     }
 
-    // Get user and update wishlist
-
-    const user = await User.findById(user_id)
+    const user = await User.findById(user_id);
     if (!user) {
-      return reply.code(404).send(new ApiResponse(404, {}, "User not found"))
+      return reply.code(404).send(new ApiResponse(404, {}, "User not found"));
     }
 
-    // Check if product already in wishlist
-    const existingWishlistItem = user.wishlist.find(
-      (item) => item.product_id.toString() === product_id && item.store_id.toString() === store_id,
-    )
+    // Check if already in wishlist (match on product + variant + size if provided)
+    const existingWishlistItem = user.wishlist.find((item) =>
+      item.product_id.toString() === product_id &&
+      item.store_id.toString() === store_id &&
+      (!variant_id || item.variant_id?.toString() === variant_id) &&
+      (!size_id || item.size_id?.toString() === size_id)
+    );
 
     if (existingWishlistItem) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Product already in wishlist"))
+      return reply.code(400).send(new ApiResponse(400, {}, "Product already in wishlist"));
     }
 
     // Add to wishlist
     user.wishlist.push({
       product_id: new mongoose.Types.ObjectId(product_id),
       store_id: new mongoose.Types.ObjectId(store_id),
+      variant_id: variant_id ? new mongoose.Types.ObjectId(variant_id) : null,
+      size_id: size_id ? new mongoose.Types.ObjectId(size_id) : null,
       added_at: new Date(),
-    })
+    });
 
-    await user.save()
+    await user.save();
 
-    // Track wishlist event
+    // Log wishlist event
     try {
-      const location = await getLocationFromIP(clientIP)
+      const location = await getLocationFromIP(clientIP);
       await WishlistEvent.create({
         store_id: new mongoose.Types.ObjectId(store_id),
         user_id: new mongoose.Types.ObjectId(user_id),
         product_id: new mongoose.Types.ObjectId(product_id),
+        variant_id: variant_id ? new mongoose.Types.ObjectId(variant_id) : null,
+        size_id: size_id ? new mongoose.Types.ObjectId(size_id) : null,
         action: "add",
         ip_address: clientIP,
         user_agent: request.headers["user-agent"],
         location,
-      })
+      });
     } catch (trackingError) {
-      request.log?.warn?.("Failed to track wishlist event:", trackingError)
+      request.log?.warn?.("Failed to track wishlist event:", trackingError);
     }
 
-    return reply.code(200).send(new ApiResponse(200, {}, "Product added to wishlist successfully"))
+    return reply.code(200).send(new ApiResponse(200, {}, "Product added to wishlist successfully"));
   } catch (error) {
-    request.log?.error?.(error)
-    return reply.code(500).send(new ApiResponse(500, {}, "Error adding product to wishlist"))
+    request.log?.error?.(error);
+    return reply.code(500).send(new ApiResponse(500, {}, "Error adding product to wishlist"));
   }
-}
+};
+
 
 // Get user's wishlist for a store
 const getWishlist = async (request, reply) => {

@@ -134,7 +134,7 @@ const toggleStoreCategoryStatus = async (request, reply) => {
     }
 };
 
-const getStoreCategoriesName = async (request, reply) => {
+const getStoreAllCategories = async (request, reply) => {
     const store_id = request.user?.store_id || request.body?.store_id || request.query?.store_id;
 
     if (!store_id) {
@@ -142,12 +142,12 @@ const getStoreCategoriesName = async (request, reply) => {
     }
 
     try {
-        const categories = await StoreCategoryModel.find({ store_id }).select("display_name -_id");
+        const categories = await StoreCategoryModel.find({ store_id });
 
         // Extract just the display_name values into a list
-        const categoryNames = categories.map(cat => cat.display_name);
+        // const categoryNames = categories.map(cat => cat.display_name);
 
-        return reply.code(200).send(new ApiResponse(200, categoryNames, "Store category names fetched successfully"));
+        return reply.code(200).send(new ApiResponse(200, categories, "Store category names fetched successfully"));
     } catch (error) {
         console.error("Error fetching store categories:", error);
         return reply.code(500).send(new ApiResponse(500, {}, "Error fetching store categories"));
@@ -163,7 +163,6 @@ const getStoreCategories = async (request, reply) => {
 
     try {
         const store = await Store.findById(store_id).select("category_id");
-        console.log("Hello");
 
         const parentCategories = await StoreCategoryModel.find({
             store_id: store_id,
@@ -183,6 +182,10 @@ const getStoreCategories = async (request, reply) => {
                     store_id: store_id,
                     category_id: parent._id,
                 });
+                // console.log("parent", parent._id);
+
+                console.log("sub", subcategories.length);
+
 
                 // Count products in parent category
                 const parentProductCount = parent.products.length
@@ -204,7 +207,7 @@ const getStoreCategories = async (request, reply) => {
                 return {
                     ...parent.toObject(),
                     product_count: parentProductCount,
-                    subcategories: subcategoriesWithCounts,
+                    subcategories: subcategories,
                 };
             })
         );
@@ -527,6 +530,7 @@ const updateStoreCategory = async (request, reply) => {
             updateData,
             { new: true }
         );
+        console.log(category);
 
         if (!category) {
             return reply.code(404).send(new ApiResponse(404, {}, "Store category not found"));
@@ -600,7 +604,7 @@ export {
     getStoreCategory,
     addStoreCategory,
     getStoreCategories,
-    getStoreCategoriesName,
+    getStoreAllCategories,
     getAvailableTags,
     getProductsByTagValues,
     getTagUsageStats,

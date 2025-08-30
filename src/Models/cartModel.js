@@ -11,7 +11,12 @@ const cartItemSchema = new Schema({
         index: true
     },
     variant_id: {
-        type: String,
+        type: Schema.Types.ObjectId,
+        ref: 'ProductVariant',
+    },
+    size_id: {
+        type: Schema.Types.ObjectId,
+        ref: 'ProductSize',
     },
     quantity: {
         type: Number,
@@ -148,6 +153,7 @@ cartSchema.pre('save', async function (next) {
 
     next();
 });
+
 
 // // Update product price when adding to cart
 // cartSchema.methods.addItem = async function (productId, variantId, quantity = 1) {

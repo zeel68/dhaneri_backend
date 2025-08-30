@@ -9,128 +9,158 @@ import { verifyJWT } from "../../Middleware/auth.middleware.js"
 
 // Add item to cart
 const addToCart = async (request, reply) => {
-  console.log("add to cart called");
-
   try {
+    const { store_id } = request.params;
+    const session_id = request.headers["x-session-id"];
+    const clientIP = request.ip || request.headers["x-forwarded-for"];
+    const { product_id, quantity = 1, variant_id, size_id } = request.body;
 
-    const { store_id } = request.params
-    const session_id = request.headers["x-session-id"]
-    console.log("session_id", session_id);
     let user_id;
+    console.log(request.body);
+
+
+    // Check user authentication if session_id is not provided
     if (!session_id) {
       await verifyJWT(request, reply);
-      user_id = request.user?._id
+      user_id = request.user?._id;
+
       if (!user_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
       }
     }
-
-    const { product_id, quantity = 1, variant_id } = request.body
-    const clientIP = request.ip || request.headers["x-forwarded-for"]
-    console.log(product_id, quantity, variant_id, user_id, session_id);
 
     // Validate product
     const product = await Product.findOne({
       _id: product_id,
       store_id: store_id,
-      // is_active: true,
-      // is_published: true,
-    })
+    }).populate({
+      path: "variants",
+      populate: {
+        path: "sizes",
+        model: "ProductSizes",
+      },
+    });
 
     if (!product) {
-      return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
+      return reply.code(404).send(new ApiResponse(404, {}, "Product not found"));
     }
 
-    // Check stock
-    console.log("Qty", product, quantity);
+    // Determine applicable price and stock
+    let price = product.discount_price || product.price;
+    let stockQuantity = product.stock?.quantity || 0;
 
-    if (product.stock.quantity < quantity) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"))
+    if (variant_id) {
+      console.log(variant_id, size_id);
+
+      const variant = product.variants.find(
+        (v) => v._id.toString() === variant_id
+      );
+
+      if (!variant) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Variant not found for this product"));
+      }
+
+      price = variant.price || price;
+      let selectedSize = variant.sizes.filter((size) => {
+        console.log(size._id);
+        return size._id == size_id
+      });
+      console.log(selectedSize);
+
+      if (selectedSize) {
+        stockQuantity = selectedSize[0].stock || stockQuantity;
+      }
+      stockQuantity = variant.stock_quantity || stockQuantity;
     }
 
-    let cart
+    if (stockQuantity < quantity) {
+      console.log(stockQuantity, quantity);
+
+      return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"));
+    }
+
+    // Get or create cart
+    let cartQuery = { store_id: new mongoose.Types.ObjectId(store_id) };
     if (user_id) {
-      // Logged in user
-      cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
-      if (!cart) {
-        cart = new Cart({
-          user_id,
-          store_id: new mongoose.Types.ObjectId(store_id),
-          items: [],
-        })
-      }
+      cartQuery.user_id = user_id;
     } else {
-      // Anonymous user - use session
-      // if (!session_id) {
-      //   return reply.code(400).send(new ApiResponse(400, {}, "Session ID required for anonymous users"))
-      // }
-
-      cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
-      if (!cart) {
-        cart = new Cart({
-          session_id,
-          store_id: new mongoose.Types.ObjectId(store_id),
-          items: [],
-        })
-      }
+      cartQuery.session_id = session_id;
     }
 
-    // Check if item already exists in cart
-    const existingItemIndex = cart.items.findIndex(
-      (item) =>
-        item.product_id.toString() === product_id && (!variant_id || item.variant_id?.toString() === variant_id),
-    )
+    let cart = await Cart.findOne(cartQuery);
+
+    if (!cart) {
+      cart = new Cart({
+        ...cartQuery,
+        items: [],
+      });
+    }
+
+    // Check for existing item in cart
+    const existingItemIndex = cart.items.findIndex((item) =>
+      item.product_id.toString() === product_id &&
+      (variant_id ? item.variant_id?.toString() === variant_id : true) &&
+      (size_id ? item.size_id?.toString() === size_id : true)
+    );
+
 
     if (existingItemIndex > -1) {
-      cart.items[existingItemIndex].quantity += quantity
+      cart.items[existingItemIndex].quantity += quantity;
     } else {
-      console.log("\n\n\n\n", variant_id);
+      console.log("productId", product_id);
 
       cart.items.push({
-        product_id: product_id,
-        variant_id: variant_id ? variant_id : null,
+        product_id,
+        variant_id: variant_id || null,
+        size_id: size_id || null,
         quantity,
-        price_at_addition: product.discount_price || product.price,
-        price: product.discount_price || product.price,
-
-      })
+        price_at_addition: price,
+        price,
+      });
     }
 
-    // Recalculate totals
-    cart.calculateTotals()
-    await cart.save()
+    cart.calculateTotals(); // assume this mutates `cart`
+    await cart.save();
 
     // Track cart event
     try {
-      const location = await getLocationFromIP(clientIP)
+      const location = await getLocationFromIP(clientIP);
       await CartEvent.create({
-        store_id: new mongoose.Types.ObjectId(store_id),
+        store_id: store_id,
         user_id: user_id || null,
-        session_id: request.headers["x-session-id"] || null,
-        product_id: new mongoose.Types.ObjectId(product_id),
+        session_id: session_id || null,
+        product_id: product_id,
+        variant_id: variant_id ? variant_id : null,
+        size_id: size_id ? size_id : null,
         action: "add",
         quantity,
-        price_at_addition: product.discount_price || product.price,
-
-        price: product.discount_price || product.price,
+        price_at_addition: price,
+        price,
         ip_address: clientIP,
         user_agent: request.headers["user-agent"],
         location,
-      })
+      });
     } catch (trackingError) {
-      request.log?.warn?.("Failed to track cart event:", trackingError)
+      request.log?.warn?.("Failed to track cart event:", trackingError);
     }
 
-    let populatedCart = await Cart.findById(cart._id).populate("items.product_id", "name price images discount_price")
+    // Return updated cart with populated items
+    const populatedCart = await Cart.findById(cart._id)
+      .populate("items.product_id", "name price images discount_price")
+      .lean();
+
     populatedCart.session_id = session_id;
 
-    return reply.code(200).send(new ApiResponse(200, { cart: populatedCart }, "Item added to cart successfully"))
+    return reply
+      .code(200)
+      .send(new ApiResponse(200, { cart: populatedCart }, "Item added to cart successfully"));
   } catch (error) {
-    request.log?.error?.(error)
-    console.log(error)
-    return reply.code(500).send(new ApiResponse(500, {}, "Error adding item to cart"))
+    request.log?.error?.(error);
+    console.error(error);
+    return reply.code(500).send(new ApiResponse(500, {}, "Error adding item to cart"));
   }
-}
+};
+
 
 // Get cart for user and store
 const getCart = async (request, reply) => {
@@ -160,8 +190,12 @@ const getCart = async (request, reply) => {
     }
 
     let populatedCart = await Cart.findById(cart._id)
-      .populate("items.product_id", "name price images discount_price stock variants")
+      .populate("items.product_id", "name price images discount_price stock")
+      .populate("items.variant_id", "color images price stock_quantity")
+      .populate("items.size_id", "size stock priceModifier sku attributes", "ProductSizes")
       .populate("coupon_id", "code discount_type discount_value")
+      .lean();
+
 
     // populatedCart.items.forEach(item => {
     //   let temp = item.product_id.variants.forEach((variant) => {

@@ -425,6 +425,14 @@ const getProductBySlug = async (request, reply) => {
       slug
       // is_published: true,
     })
+      .populate({
+        path: "variants",
+        populate: {
+          path: "sizes",
+          model: "ProductSizes"
+        }
+      })
+
       // .populate("StoreCategory", "name description")
       .populate("store_id", "name description contact_email")
 

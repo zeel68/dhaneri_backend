@@ -264,7 +264,7 @@ const updateProduct = async (request, reply) => {
                 variants: variantDocs,
             },
             { new: true }
-        ).populate("category", "name").populate("variants");
+        ).populate("category").populate("variants");
 
         return reply.code(200).send(new ApiResponse(200, updatedProduct, "Product updated successfully"));
     } catch (error) {

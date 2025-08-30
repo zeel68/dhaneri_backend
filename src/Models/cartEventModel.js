@@ -27,6 +27,12 @@ const cartEventSchema = new Schema(
     },
     variant_id: {
       type: Schema.Types.ObjectId,
+      ref: "ProductVariant",
+      default: null,
+    },
+    size_id: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductSize",
       default: null,
     },
     action: {
