@@ -191,9 +191,9 @@ const updateProduct = async (request, reply) => {
         const updateData = { ...request.body, updated_at: new Date() };
 
         // Parse JSON fields if they are strings
-        if (typeof updateData.attributes === "string") {
-            updateData.attributes = JSON.parse(updateData.attributes);
-        }
+        // if (typeof updateData.attributes === "string") {
+        //     updateData.attributes = JSON.parse(updateData.attributes);
+        // }
         if (typeof updateData.stock === "string") {
             updateData.stock = JSON.parse(updateData.stock);
         }

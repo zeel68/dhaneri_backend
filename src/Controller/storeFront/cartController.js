@@ -16,20 +16,23 @@ const addToCart = async (request, reply) => {
     const { product_id, quantity = 1, variant_id, size_id } = request.body;
 
     let user_id;
-    console.log(request.body);
 
+    console.log("[Request Body]", request.body);
+    console.log("[Store ID]", store_id);
+    console.log("[Session ID]", session_id);
 
-    // Check user authentication if session_id is not provided
+    // Step 1: Authenticate user if no session_id
     if (!session_id) {
       await verifyJWT(request, reply);
       user_id = request.user?._id;
 
       if (!user_id) {
+        console.warn("[Auth Error] No session ID or user authentication");
         return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
       }
     }
 
-    // Validate product
+    // Step 2: Validate product
     const product = await Product.findOne({
       _id: product_id,
       store_id: store_id,
@@ -42,87 +45,114 @@ const addToCart = async (request, reply) => {
     });
 
     if (!product) {
+      console.warn(`[Product Error] Product ${product_id} not found in store ${store_id}`);
       return reply.code(404).send(new ApiResponse(404, {}, "Product not found"));
     }
 
-    // Determine applicable price and stock
+    console.log("[Product Found]", product.name);
+
+    // Step 3: Determine price and stock
     let price = product.discount_price || product.price;
     let stockQuantity = product.stock?.quantity || 0;
 
     if (variant_id) {
-      console.log(variant_id, size_id);
+      console.log("[Variant ID]", variant_id);
+      console.log("[Size ID]", size_id);
 
-      const variant = product.variants.find(
-        (v) => v._id.toString() === variant_id
-      );
+      const variant = product.variants.find(v => v._id.toString() === variant_id);
 
       if (!variant) {
+        console.warn(`[Variant Error] Variant ${variant_id} not found for product ${product_id}`);
         return reply.code(400).send(new ApiResponse(400, {}, "Variant not found for this product"));
       }
 
       price = variant.price || price;
-      let selectedSize = variant.sizes.filter((size) => {
-        console.log(size._id);
-        return size._id == size_id
-      });
-      console.log(selectedSize);
 
-      if (selectedSize) {
-        stockQuantity = selectedSize[0].stock || stockQuantity;
+      if (size_id) {
+        const selectedSize = variant.sizes.find(size => size._id.toString() === size_id);
+        if (selectedSize) {
+          stockQuantity = selectedSize.stock || stockQuantity;
+          console.log("[Selected Size Stock]", selectedSize.stock);
+        }
       }
+
       stockQuantity = variant.stock_quantity || stockQuantity;
+      console.log("[Variant Stock]", variant.stock_quantity);
     }
 
-    if (stockQuantity < quantity) {
-      console.log(stockQuantity, quantity);
+    console.log("[Stock Quantity]", stockQuantity, "Requested Quantity:", quantity);
 
+    if (stockQuantity < quantity) {
+      console.warn("[Stock Error] Insufficient stock");
       return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"));
     }
 
-    // Get or create cart
-    let cartQuery = { store_id: new mongoose.Types.ObjectId(store_id) };
-    if (user_id) {
-      cartQuery.user_id = user_id;
-    } else {
-      cartQuery.session_id = session_id;
-    }
+    // Step 4: Get or create cart
+    const cartQuery = {
+      store_id: new mongoose.Types.ObjectId(store_id),
+      ...(user_id ? { user_id } : { session_id }),
+    };
 
     let cart = await Cart.findOne(cartQuery);
+    console.log("[Cart Found]", !!cart);
 
     if (!cart) {
       cart = new Cart({
         ...cartQuery,
         items: [],
       });
+      console.log("[Cart Created]");
     }
 
-    // Check for existing item in cart
+    // Step 5: Check if item already exists in cart
     const existingItemIndex = cart.items.findIndex((item) =>
       item.product_id.toString() === product_id &&
       (variant_id ? item.variant_id?.toString() === variant_id : true) &&
       (size_id ? item.size_id?.toString() === size_id : true)
     );
 
-
     if (existingItemIndex > -1) {
       cart.items[existingItemIndex].quantity += quantity;
+      console.log("[Cart Update] Increased quantity for existing item");
     } else {
-      console.log("productId", product_id);
-
+      console.log("[Cart Add] Adding new item to cart", product_id);
       cart.items.push({
         product_id,
         variant_id: variant_id || null,
         size_id: size_id || null,
         quantity,
         price_at_addition: price,
-        price,
       });
     }
 
-    cart.calculateTotals(); // assume this mutates `cart`
-    await cart.save();
+    // Step 6: Clean up invalid product IDs before saving
+    console.log("[Validation] Filtering invalid products before saving cart...");
 
-    // Track cart event
+    const validItems = [];
+    for (const item of cart.items) {
+      const exists = await Product.exists({ _id: item.product_id });
+      if (!exists) {
+        console.warn(`[Invalid Product Removed] product_id: ${item.product_id}`);
+        continue;
+      }
+      validItems.push(item);
+    }
+    cart.items = validItems;
+
+    console.log("[Cart Items Before Save]", cart.items.map(i => ({
+      product_id: i.product_id.toString(),
+      variant_id: i.variant_id?.toString(),
+      size_id: i.size_id?.toString(),
+      quantity: i.quantity,
+      price_at_addition: i.price_at_addition,
+    })));
+
+    // Step 7: Calculate totals and save
+    cart.calculateTotals();
+    await cart.save();
+    console.log("[Cart Saved]");
+
+    // Step 8: Track cart event (optional)
     try {
       const location = await getLocationFromIP(clientIP);
       await CartEvent.create({
@@ -130,8 +160,8 @@ const addToCart = async (request, reply) => {
         user_id: user_id || null,
         session_id: session_id || null,
         product_id: product_id,
-        variant_id: variant_id ? variant_id : null,
-        size_id: size_id ? size_id : null,
+        variant_id: variant_id || null,
+        size_id: size_id || null,
         action: "add",
         quantity,
         price_at_addition: price,
@@ -140,26 +170,30 @@ const addToCart = async (request, reply) => {
         user_agent: request.headers["user-agent"],
         location,
       });
+      console.log("[Cart Event Tracked]");
     } catch (trackingError) {
-      request.log?.warn?.("Failed to track cart event:", trackingError);
+      console.warn("[Cart Tracking Error]", trackingError);
     }
 
-    // Return updated cart with populated items
+    // Step 9: Return populated cart
     const populatedCart = await Cart.findById(cart._id)
       .populate("items.product_id", "name price images discount_price")
       .lean();
 
     populatedCart.session_id = session_id;
 
+    console.log("[Cart Response Sent]");
     return reply
       .code(200)
       .send(new ApiResponse(200, { cart: populatedCart }, "Item added to cart successfully"));
   } catch (error) {
+    console.error("[Add To Cart Error]", error);
     request.log?.error?.(error);
-    console.error(error);
     return reply.code(500).send(new ApiResponse(500, {}, "Error adding item to cart"));
   }
 };
+
+
 
 
 // Get cart for user and store
@@ -194,9 +228,18 @@ const getCart = async (request, reply) => {
       .populate("items.variant_id", "color images price stock_quantity")
       .populate("items.size_id", "size stock priceModifier sku attributes", "ProductSizes")
       .populate("coupon_id", "code discount_type discount_value")
-      .lean();
+      .lean({ virtuals: true });
 
+    const subtotal = populatedCart.items.reduce((sum, item) => {
+      return sum + (item.price_at_addition * item.quantity);
+    }, 0);
 
+    const shipping = subtotal >= 1000 ? 0 : 50; // Example logic: free shipping above ₹1000
+    const total = subtotal + shipping;
+
+    populatedCart.subtotal = subtotal;
+    populatedCart.shipping_fee = shipping;
+    populatedCart.total = total;
     // populatedCart.items.forEach(item => {
     //   let temp = item.product_id.variants.forEach((variant) => {
 

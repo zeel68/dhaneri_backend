@@ -20,7 +20,7 @@ const productSizes = new mongoose.Schema({
     stock: { type: Number },
     priceModifier: { type: Number },
     sku: { type: String },
-    attributes: { type: Map, of: String },
+    attributes: [{ type: JSON }],
 },)
 
 const productVariant = new mongoose.Schema({
@@ -117,8 +117,7 @@ const productSchema = new mongoose.Schema({
 
     // Simplified attributes (as in your document)
     attributes: {
-        color: [String],
-        size: [String],
+        type: JSON
     },
 
     stock: {
