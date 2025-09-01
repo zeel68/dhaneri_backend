@@ -89,10 +89,10 @@ const orderSchema = new Schema({
         required: true,
         default: 'pending',
         index: true,
-        enum: {
-            values: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
-            message: 'Invalid order status'
-        }
+        // enum: {
+        //     values: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
+        //     message: 'Invalid order status'
+        // }
     },
     shipping_address: {
         type: {
@@ -118,7 +118,7 @@ const orderSchema = new Schema({
     items: [orderItemSchema], // Embedded order items
     payment_status: {
         type: String,
-        enum: ['pending', 'paid', 'failed', 'refunded'],
+        // enum: ['pending', 'paid', 'failed', 'refunded'],
         default: 'pending'
     },
     shipping_method: String,

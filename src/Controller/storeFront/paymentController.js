@@ -84,11 +84,12 @@ const initializePayment = async (request, reply) => {
 
     // Create payment record
     const payment = await Payment.create({
-      order_id: new mongoose.Types.ObjectId(order_id),
-      store_id: new mongoose.Types.ObjectId(store_id),
-      user_id: new mongoose.Types.ObjectId(user_id),
+      order_id: order_id,
+      store_id: store_id,
+      user_id: user_id,
+      order_id: order_id,
       amount: order.total,
-      currency: "USD", // Make this configurable
+      currency: "INR", // Make this configurable
       payment_method,
       status: "pending",
       gateway_data: {},
@@ -109,6 +110,10 @@ const initializePayment = async (request, reply) => {
         // In a real implementation, you would integrate with Stripe here
         paymentResponse.client_secret = `pi_${payment._id}_secret_${Date.now()}`
         paymentResponse.publishable_key = "pk_test_example"
+        break
+      case "razorpay":
+        paymentResponse.razorpay_key = "rzp_test_example"
+        paymentResponse.order_id = `order_${payment._id}`
         break
 
       case "paypal":
@@ -148,7 +153,7 @@ const initializePayment = async (request, reply) => {
 const processPaymentCallback = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { payment_id, status, transaction_id, gateway_response } = request.body
+    const { payment_id, status, transaction_id, gateway_response, gatway_payment_id } = request.body
 
     if (!payment_id || !status) {
       return reply.code(400).send(new ApiResponse(400, {}, "Payment ID and status are required"))
@@ -156,8 +161,11 @@ const processPaymentCallback = async (request, reply) => {
 
     const payment = await Payment.findOne({
       _id: payment_id,
-      store_id: new mongoose.Types.ObjectId(store_id),
+      store_id: store_id,
     })
+    console.log(payment_id, store_id);
+    console.log(payment);
+
 
     if (!payment) {
       return reply.code(404).send(new ApiResponse(404, {}, "Payment not found"))
@@ -185,7 +193,14 @@ const processPaymentCallback = async (request, reply) => {
           })
         }
       }
-      await order.save()
+      const saveResult = await order.save();
+      console.log("Save result:", saveResult);
+
+      const savedOrder = await Order.findById(order._id);
+      console.log("Saved order from DB:", savedOrder);
+
+      // await order.save()
+
     }
 
     return reply.code(200).send(new ApiResponse(200, { payment, order }, "Payment callback processed successfully"))

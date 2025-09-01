@@ -55,7 +55,7 @@ const getStoreOrders = async (request, reply) => {
     sortObj[sort] = order === "desc" ? -1 : 1
 
     const [orders, total] = await Promise.all([
-      Order.find(filter).populate("user_id", "name email phone").sort(sortObj).skip(skip).limit(Number.parseInt(limit)),
+      Order.find(filter).populate("user_id", "name email phone_number").populate("items.product_id").sort(sortObj).skip(skip).limit(Number.parseInt(limit)).lean(),
       Order.countDocuments(filter),
     ])
 

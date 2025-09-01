@@ -4,6 +4,7 @@ import { ProductView } from "../../Models/productViewModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { getLocationFromIP } from "../../utils/locationService.js"
 import mongoose from "mongoose"
+import path from "path"
 
 // Get all products for storefront with filters and pagination
 const getStorefrontProducts = async (request, reply) => {
@@ -320,8 +321,8 @@ const searchStorefrontProducts = async (request, reply) => {
 
     const products = await Product.find({
       store_id: new mongoose.Types.ObjectId(store_id),
-      is_active: true,
-      is_published: true,
+      // is_active: true,
+      // is_published: true,
       $or: [
         { name: searchRegex },
         { description: searchRegex },
@@ -329,15 +330,25 @@ const searchStorefrontProducts = async (request, reply) => {
         { "tags.value": searchRegex },
       ],
     })
-      .populate("category_id", "name")
-      .select("name price discount_price images stock")
+      .populate("category", "name")
+      .populate({
+        path: "variants",
+        model: "ProductVariant",
+        populate: {
+          path: "sizes",
+          model: "ProductSizes",
+        },
+
+
+      })
+      // .select("name price discount_price images stock")
       .skip(skip)
       .limit(Number.parseInt(limit))
 
     const total = await Product.countDocuments({
       store_id: new mongoose.Types.ObjectId(store_id),
-      is_active: true,
-      is_published: true,
+      // is_active: true,
+      // is_published: true,
       $or: [
         { name: searchRegex },
         { description: searchRegex },

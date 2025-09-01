@@ -5,7 +5,12 @@ const paymentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },
-    order: {
+    store_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Store',
+        required: true
+    },
+    order_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order',
         required: true

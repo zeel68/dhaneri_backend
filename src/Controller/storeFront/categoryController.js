@@ -34,7 +34,7 @@ const getStoreCategory = async (request, reply) => {
         const subcategories = await StoreCategoryModel.find({
           store_id: store_id,
           category_id: parent._id,
-        });
+        }).populate("products");
 
         // Count products in parent category
         const parentProductCount = parent.products.length

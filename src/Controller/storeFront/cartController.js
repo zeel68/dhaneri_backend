@@ -234,7 +234,8 @@ const getCart = async (request, reply) => {
       return sum + (item.price_at_addition * item.quantity);
     }, 0);
 
-    const shipping = subtotal >= 1000 ? 0 : 50; // Example logic: free shipping above ₹1000
+    // const shipping = subtotal >= 1000 ? 0 : 50; // Example logic: free shipping above ₹1000
+    const shipping = 0; // For now, always free shipping
     const total = subtotal + shipping;
 
     populatedCart.subtotal = subtotal;
@@ -286,25 +287,42 @@ const getCart = async (request, reply) => {
 const updateCartItem = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { product_id, quantity, variant_id } = request.body
-    const user_id = request.user?._id
+    const { product_id, quantity, variant_id, size_id } = request.body
     const session_id = request.headers["x-session-id"]
+    console.log("session_id", session_id);
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+      }
+    }
+    console.log(session_id, user_id);
 
     let cart
-    if (user_id) {
-      cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
-    } else if (session_id) {
+    if (session_id) {
       cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
+    }
+    else if (user_id) {
+      cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
     }
 
     if (!cart) {
       return reply.code(404).send(new ApiResponse(404, {}, "Cart not found"))
     }
+    console.log(variant_id, product_id, size_id);
 
     const itemIndex = cart.items.findIndex(
-      (item) =>
-        item.product_id.toString() === product_id && (!variant_id || item.variant_id?.toString() === variant_id),
+      (item) => {
+        console.log(item.product_id);
+        console.log(item.variant_id);
+
+        return item.product_id == product_id && variant_id == item.variant_id
+      }
     )
+    console.log(itemIndex);
+
 
     if (itemIndex === -1) {
       return reply.code(404).send(new ApiResponse(404, {}, "Item not found in cart"))
@@ -314,10 +332,10 @@ const updateCartItem = async (request, reply) => {
       cart.items.splice(itemIndex, 1)
     } else {
       // Check stock
-      const product = await Product.findById(product_id)
-      if (product.stock.quantity < quantity) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"))
-      }
+      // const product = await Product.findById(product_id)
+      // if (product.stock.quantity < quantity) {
+      //   return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"))
+      // }
       cart.items[itemIndex].quantity = quantity
     }
 
@@ -338,9 +356,16 @@ const removeCartItem = async (request, reply) => {
   try {
     const { store_id } = request.params
     const { product_id, variant_id } = request.body
-    const user_id = request.user?._id
     const session_id = request.headers["x-session-id"]
-
+    console.log("session_id", session_id);
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+      }
+    }
     let cart
     if (user_id) {
       cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
@@ -354,11 +379,12 @@ const removeCartItem = async (request, reply) => {
 
     cart.items = cart.items.filter(
       (item) =>
-        !(item.product_id.toString() === product_id && (!variant_id || item.variant_id?.toString() === variant_id)),
+        !(item.product_id == product_id && variant_id == item.variant_id),
     )
 
     cart.calculateTotals()
-    await cart.save()
+    let result = await cart.save()
+    console.log("new cart", result);
 
     const populatedCart = await Cart.findById(cart._id).populate("items.product_id", "name price images discount_price")
 
@@ -373,9 +399,16 @@ const removeCartItem = async (request, reply) => {
 const clearCart = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const user_id = request.user?._id
     const session_id = request.headers["x-session-id"]
-
+    console.log("session_id", session_id);
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+      }
+    }
     let cart
     if (user_id) {
       cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
@@ -404,9 +437,16 @@ const applyCoupon = async (request, reply) => {
   try {
     const { store_id } = request.params
     const { coupon_code } = request.body
-    const user_id = request.user?._id
     const session_id = request.headers["x-session-id"]
-
+    console.log("session_id", session_id);
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id
+      if (!user_id) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+      }
+    }
     let cart
     if (user_id) {
       cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })

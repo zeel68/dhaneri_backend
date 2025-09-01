@@ -58,6 +58,8 @@ const createOrder = async (request, reply) => {
     } else {
       // Direct order (items provided in request)
       const { items } = request.body
+      console.log(items);
+
       if (!items || items.length === 0) {
         return reply.code(400).send(new ApiResponse(400, {}, "Order items are required"))
       }
@@ -68,9 +70,9 @@ const createOrder = async (request, reply) => {
           return reply.code(400).send(new ApiResponse(400, {}, `Product ${item.product_id} not found`))
         }
 
-        if (product.stock.quantity < item.quantity) {
-          return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${product.name}`))
-        }
+        // if (product.stock.quantity < item.quantity) {
+        //   return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${product.name}`))
+        // }
 
         const itemPrice = product.discount_price || product.price
         const itemTotal = itemPrice * item.quantity
@@ -87,7 +89,7 @@ const createOrder = async (request, reply) => {
     }
 
     // Calculate totals
-    const taxRate = 0.1 // 10% tax (you can make this configurable)
+    const taxRate = 0 // 10% tax (you can make this configurable)
     const tax = subtotal * taxRate
     const shippingCost = subtotal > 50 ? 0 : 10 // Free shipping over $50
     const total = subtotal + tax + shippingCost
@@ -114,11 +116,11 @@ const createOrder = async (request, reply) => {
     })
 
     // Update product stock
-    for (const item of orderItems) {
-      await Product.findByIdAndUpdate(item.product_id, {
-        $inc: { "stock.quantity": -item.quantity },
-      })
-    }
+    // for (const item of orderItems) {
+    //   await Product.findByIdAndUpdate(item.product_id, {
+    //     $inc: { "stock.quantity": -item.quantity },
+    //   })
+    // }
 
     // Clear cart if used
     if (use_cart) {
@@ -136,7 +138,7 @@ const createOrder = async (request, reply) => {
       key_secret: "3vHqucr88tmW6PqQmeBuii2N",
     });
     let response = await razorpayInstance.orders.create({
-      "amount": "100",
+      "amount": populatedOrder.total * 100,
       "currency": "INR",
     })
 
