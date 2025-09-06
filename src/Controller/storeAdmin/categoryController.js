@@ -164,6 +164,7 @@ const getStoreCategories = async (request, reply) => {
     try {
         const store = await Store.findById(store_id).select("category_id");
 
+
         const parentCategories = await StoreCategoryModel.find({
             store_id: store_id,
             category_id: store.category_id,

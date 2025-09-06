@@ -1,7 +1,7 @@
-import {ApiResponse} from "../../utils/ApiResponse.js";
-import {Category} from "../../Models/categoryModel.js";
-import {Store} from "../../Models/storeModel.js";
-import {StoreCategoryModel} from "../../Models/storeCategoryModel.js";
+import { ApiResponse } from "../../utils/ApiResponse.js";
+import { Category } from "../../Models/categoryModel.js";
+import { Store } from "../../Models/storeModel.js";
+import { StoreCategoryModel } from "../../Models/storeCategoryModel.js";
 
 const getGlobalCategories = async (request, reply) => {
 
@@ -21,21 +21,21 @@ const getGlobalCategories = async (request, reply) => {
 
 const addGlobalCategory = async (request, reply) => {
     const storeId = request.user.store_id;
-    const { category_name, img_url, tag_schema = [] } = request.body;
+    const { name, img_url, tag_schema = [] } = request.body;
 
-    if (!category_name?.trim()) {
+    if (!name?.trim()) {
         return reply.code(400).send(new ApiResponse(400, {}, "Category name is required"));
     }
 
     try {
         // Check for duplicate category name (globally unique in schema)
-        const existingCategory = await Category.findOne({ name: category_name.trim() });
+        const existingCategory = await Category.findOne({ name: name.trim() });
         if (existingCategory) {
             return reply.code(409).send(new ApiResponse(409, {}, "Category name already exists"));
         }
 
         const category = await Category.create({
-            name: category_name.trim(),
+            name: name.trim(),
             image_url: img_url || "",
             store_id: storeId,
             tag_schema
@@ -48,4 +48,4 @@ const addGlobalCategory = async (request, reply) => {
     }
 };
 
-export {getGlobalCategories,addGlobalCategory}
+export { getGlobalCategories, addGlobalCategory }

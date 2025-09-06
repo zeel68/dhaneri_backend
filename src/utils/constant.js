@@ -1,1 +1,1 @@
-export const DB_NAME = "WebBizz";
+export const DB_NAME = "BizzPocket";

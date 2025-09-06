@@ -114,12 +114,15 @@ const registerUser = asyncHandler(async (request, reply) => {
         email,
         phone_number,
         password,
-        store_id = "customer",
+        store_id,
         provider = "local",
         provider_id = null,
+        role_name
     } = request.body;
+    if (!role_name) {
 
-    const role_name = "customer";
+        role_name = "customer";
+    }
 
     // Basic validation
     if (provider === "local") {
@@ -143,6 +146,9 @@ const registerUser = asyncHandler(async (request, reply) => {
 
     // Get role
     const role = await Role.findOne({ name: role_name });
+
+    console.log(role, role_name);
+
     if (!role) {
         return reply.code(400).send(new ApiError(400, "Invalid user role"));
     }

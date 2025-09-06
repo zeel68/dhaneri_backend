@@ -2,7 +2,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js"
 import { ApiError } from "../../utils/ApiError.js"
 import { Store } from "../../Models/storeModel.js"
 import { deleteFromCloudinary } from "../../Middleware/upload.middleware.js"
-import {extractPublicId} from "../../utils/upload.js";
+import { extractPublicId } from "../../utils/upload.js";
 // 1. Get Store Details
 const getStoreDetails = async (request, reply) => {
     try {
@@ -29,22 +29,16 @@ const getStoreDetails = async (request, reply) => {
 // 2. Update Store Configuration
 const updateStoreConfig = async (request, reply) => {
     try {
-        const storeId = request.user.store_id
+        const storeId = request.user.store_id;
         const {
             name,
+            config: newConfig,
             description,
-            contact_info,
-            address,
-            business_hours,
-            social_media,
-            seo_settings,
-            payment_methods,
-            shipping_zones,
-            tax_settings,
-        } = request.body
+            // ... other top-level fields
+        } = request.body;
 
-        // Get existing store to handle logo/banner updates
-        const existingStore = await Store.findById(storeId)
+        // Get existing store
+        const existingStore = await Store.findById(storeId);
         if (!existingStore) {
             // Clean up uploaded files if store doesn't exist
             if (request.files) {
@@ -52,75 +46,53 @@ const updateStoreConfig = async (request, reply) => {
                     for (const file of fieldFiles) {
                         if (file.public_id) {
                             try {
-                                await deleteFromCloudinary(file.public_id)
+                                await deleteFromCloudinary(file.public_id);
                             } catch (cleanupError) {
-                                console.error("Error cleaning up uploaded file:", cleanupError)
+                                console.error("Error cleaning up uploaded file:", cleanupError);
                             }
                         }
                     }
                 }
             }
-            throw new ApiError(404, "Store not found")
+            throw new ApiError(404, "Store not found");
         }
+
+        // Merge existing config with new updates
+        const mergedConfig = {
+            ...existingStore.config, // Convert Mongoose document to plain object
+            ...(newConfig && {
+                ...(newConfig.contact_info !== undefined && { contact_info: newConfig.contact_info }),
+                ...(newConfig.address !== undefined && { address: newConfig.address }),
+                ...(newConfig.business_hours !== undefined && { business_hours: newConfig.business_hours }),
+                ...(newConfig.social_media !== undefined && { social_media: newConfig.social_media }),
+                ...(newConfig.seo_settings !== undefined && { seo_settings: newConfig.seo_settings }),
+                ...(newConfig.payment_methods !== undefined && { payment_methods: newConfig.payment_methods }),
+                ...(newConfig.shipping_zones !== undefined && { shipping_zones: newConfig.shipping_zones }),
+                ...(newConfig.tax_settings !== undefined && { tax_settings: newConfig.tax_settings }),
+            }),
+        };
 
         const updateData = {
-            ...(name && { name }),
-            ...(description && { description }),
-            ...(contact_info && { contact_info: JSON.parse(contact_info) }),
-            ...(address && { address: JSON.parse(address) }),
-            ...(business_hours && { business_hours: JSON.parse(business_hours) }),
-            ...(social_media && { social_media: JSON.parse(social_media) }),
-            ...(seo_settings && { seo_settings: JSON.parse(seo_settings) }),
-            ...(payment_methods && { payment_methods: JSON.parse(payment_methods) }),
-            ...(shipping_zones && { shipping_zones: JSON.parse(shipping_zones) }),
-            ...(tax_settings && { tax_settings: JSON.parse(tax_settings) }),
+            ...(name !== undefined && { name }),
+            ...(description !== undefined && { description }),
+            ...(Object.keys(mergedConfig).length > 0 && { config: mergedConfig }),
             updated_at: new Date(),
-        }
+        };
 
-        // Handle logo upload
-        if (request.files && request.files.store_logo && request.files.store_logo[0]) {
-            const logoFile = request.files.store_logo[0]
-            updateData.logo_url = logoFile.path || logoFile.secure_url
-
-            // Delete old logo
-            if (existingStore.logo_url) {
-                const oldLogoPublicId = extractPublicId(existingStore.logo_url)
-                if (oldLogoPublicId) {
-                    try {
-                        await deleteFromCloudinary(oldLogoPublicId)
-                    } catch (deleteError) {
-                        console.error("Error deleting old logo:", deleteError)
-                    }
-                }
+        const updatedStore = await Store.findByIdAndUpdate(
+            storeId,
+            updateData,
+            {
+                new: true,
+                runValidators: true,
             }
-        }
+        ).populate("category_id", "name description");
 
-        // Handle banner upload
-        if (request.files && request.files.store_banner && request.files.store_banner[0]) {
-            const bannerFile = request.files.store_banner[0]
-            updateData.banner_url = bannerFile.path || bannerFile.secure_url
-
-            // Delete old banner
-            if (existingStore.banner_url) {
-                const oldBannerPublicId = extractPublicId(existingStore.banner_url)
-                if (oldBannerPublicId) {
-                    try {
-                        await deleteFromCloudinary(oldBannerPublicId)
-                    } catch (deleteError) {
-                        console.error("Error deleting old banner:", deleteError)
-                    }
-                }
-            }
-        }
-
-        const updatedStore = await Store.findByIdAndUpdate(storeId, updateData, {
-            new: true,
-            runValidators: true,
-        }).populate("category_id", "name description")
-
-        return reply.code(200).send(new ApiResponse(200, updatedStore, "Store configuration updated successfully"))
+        return reply.code(200).send(
+            new ApiResponse(200, updatedStore, "Store configuration updated successfully")
+        );
     } catch (error) {
-        request.log?.error?.(error)
+        request.log?.error?.(error);
 
         // Clean up uploaded files if update fails
         if (request.files) {
@@ -128,9 +100,9 @@ const updateStoreConfig = async (request, reply) => {
                 for (const file of fieldFiles) {
                     if (file.public_id) {
                         try {
-                            await deleteFromCloudinary(file.public_id)
+                            await deleteFromCloudinary(file.public_id);
                         } catch (cleanupError) {
-                            console.error("Error cleaning up uploaded file:", cleanupError)
+                            console.error("Error cleaning up uploaded file:", cleanupError);
                         }
                     }
                 }
@@ -138,11 +110,15 @@ const updateStoreConfig = async (request, reply) => {
         }
 
         if (error instanceof ApiError) {
-            return reply.code(error.statusCode).send(new ApiResponse(error.statusCode, {}, error.message))
+            return reply.code(error.statusCode).send(
+                new ApiResponse(error.statusCode, {}, error.message)
+            );
         }
-        return reply.code(500).send(new ApiResponse(500, {}, "Error updating store configuration"))
+        return reply.code(500).send(
+            new ApiResponse(500, {}, "Error updating store configuration")
+        );
     }
-}
+};
 
 // 3. Get Store Configuration
 const getStoreConfig = async (request, reply) => {
@@ -150,7 +126,7 @@ const getStoreConfig = async (request, reply) => {
         const storeId = request.user.store_id
 
         const store = await Store.findById(storeId).select(
-            "name description logo_url banner_url contact_info address business_hours social_media seo_settings payment_methods shipping_zones tax_settings",
+            "name description logo_url banner_url contact_info config address business_hours social_media seo_settings payment_methods shipping_zones tax_settings",
         )
 
         if (!store) {

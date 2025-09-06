@@ -83,6 +83,62 @@ const getAllStores = async (request, reply) => {
   }
 }
 
+export const createStore = async (request, reply) => {
+  const { name, domain, categoryId, adminEmail, adminPassword } = request.body;
+
+  // Validate category
+  const category = await Category.findById(categoryId);
+  if (!category) throw new ApiError(404, "Category not found");
+
+  // Create admin user
+  const admin = await User.create({
+    name: `${name} Admin`,
+    email: adminEmail,
+    password: adminPassword,
+    role_id: "store_admin",
+    store_id: null
+  });
+
+  // Create store
+  const store = await Store.create({
+    name,
+    domain,
+    category_id: category._id,
+    config: {
+      enabledCategory: category.name
+    },
+    rootAdmin: admin._id
+  });
+
+  // Link admin to store
+  admin.store_id = store._id;
+  await admin.save();
+
+  return new ApiResponse(201, { store, admin }, "Store created");
+};
+
+// Get store analytics
+export const getStoreAnalytics = async (request, reply) => {
+  const storeId = request.params.id;
+
+  const [products, orders, users] = await Promise.all([
+    Product.countDocuments({ store_id: storeId }),
+    Order.countDocuments({ store_id: storeId }),
+    User.countDocuments({ store_id: storeId })
+  ]);
+
+  const revenue = await Order.aggregate([
+    { $match: { store_id: storeId } },
+    { $group: { _id: null, total: { $sum: "$total" } } }
+  ]);
+
+  return new ApiResponse(200, {
+    products,
+    orders,
+    users,
+    revenue: revenue[0]?.total || 0
+  }, "Store analytics fetched");
+};
 // Get single store details
 const getStoreById = async (request, reply) => {
   try {
