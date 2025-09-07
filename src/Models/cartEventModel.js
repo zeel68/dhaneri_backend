@@ -114,7 +114,7 @@ const cartEventSchema = new Schema(
 cartEventSchema.index({ store_id: 1, created_at: -1 })
 cartEventSchema.index({ product_id: 1, action: 1 })
 cartEventSchema.index({ user_id: 1, created_at: -1 })
-cartEventSchema.index({ session_id: 1 })
+// cartEventSchema.index({ session_id: 1 })
 cartEventSchema.index({ action: 1, created_at: -1 })
 
 export const CartEvent = mongoose.model("CartEvent", cartEventSchema)

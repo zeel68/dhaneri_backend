@@ -4,6 +4,9 @@ import { Product } from "../../Models/productModel.js"
 import { Order } from "../../Models/orderModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import mongoose from "mongoose"
+import { Category } from "../../Models/categoryModel.js"
+import { ApiError } from "../../utils/ApiError.js"
+import { Role } from "../../Models/roleModel.js"
 
 // Get all stores
 const getAllStores = async (request, reply) => {
@@ -84,20 +87,16 @@ const getAllStores = async (request, reply) => {
 }
 
 export const createStore = async (request, reply) => {
-  const { name, domain, categoryId, adminEmail, adminPassword } = request.body;
+  const { name, domain, category_id, adminEmail, adminPassword } = request.body;
 
   // Validate category
-  const category = await Category.findById(categoryId);
+  const category = await Category.findById(category_id);
   if (!category) throw new ApiError(404, "Category not found");
+  const role = await Role.findOne({ name: "store_admin" })
+  console.log(role);
 
   // Create admin user
-  const admin = await User.create({
-    name: `${name} Admin`,
-    email: adminEmail,
-    password: adminPassword,
-    role_id: "store_admin",
-    store_id: null
-  });
+
 
   // Create store
   const store = await Store.create({
@@ -107,14 +106,21 @@ export const createStore = async (request, reply) => {
     config: {
       enabledCategory: category.name
     },
-    rootAdmin: admin._id
+    // rootAdmin: admin._id
   });
+  // const admin = await User.create({
+  //   name: `${name} Admin`,
+  //   email: adminEmail,
+  //   password: adminPassword,
+  //   role_id: role._id,
+  //   store_id: store._id
+  // });
 
   // Link admin to store
-  admin.store_id = store._id;
-  await admin.save();
+  // admin.store_id = store._id;
+  // await admin.save();
 
-  return new ApiResponse(201, { store, admin }, "Store created");
+  return new ApiResponse(201, { store }, "Store created");
 };
 
 // Get store analytics

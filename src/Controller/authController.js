@@ -109,7 +109,7 @@ const generateAccessAndRefereshTokens = async (userId) => {
 // })
 // Register User
 const registerUser = asyncHandler(async (request, reply) => {
-    const {
+    let {
         name,
         email,
         phone_number,
