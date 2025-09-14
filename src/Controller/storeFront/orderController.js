@@ -211,11 +211,19 @@ const getOrderDetails = async (request, reply) => {
     const user_id = request.user._id
 
     const order = await Order.findOne({
-      _id: order_id,
-      store_id: new mongoose.Types.ObjectId(store_id),
-      user_id: new mongoose.Types.ObjectId(user_id),
+      order_number: order_id,
+      store_id: store_id,
+      user_id: user_id,
     })
-      .populate("items.product_id", "name images price discount_price")
+      // .populate("items.product_id", "name images price discount_price")
+      .populate("items.product_id")
+      .populate({
+        path: "items.product_id.variants",
+        populate: {
+          path: "sizes",
+          model: "ProductSizes",
+        },
+      })
       .populate("user_id", "name email phone_number")
 
     if (!order) {
