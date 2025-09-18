@@ -4,6 +4,15 @@ import validator from "validator"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 
+
+const addressSchema = new mongoose.Schema({
+    street: String,
+    city: String,
+    state: String,
+    pincode: String,
+    country: String
+}, { _id: false });
+
 // User Schema
 const userSchema = new Schema(
     {
@@ -101,9 +110,8 @@ const userSchema = new Schema(
             type: String,
         },
         address: {
-            type: String,
-            trim: true,
-            maxlength: [500, "Address cannot exceed 500 characters"],
+            type: [addressSchema],
+            default: []
         },
         is_active: {
             type: Boolean,
@@ -111,7 +119,10 @@ const userSchema = new Schema(
         },
         refresh_token: {
             type: String,
-            select: false,
+        },
+        orders: {
+            type: Schema.Types.ObjectId,
+            ref: 'Order'
         },
         cart: {
             type: Schema.Types.ObjectId,
@@ -164,7 +175,6 @@ const userSchema = new Schema(
             virtuals: true,
             transform: (doc, ret) => {
                 delete ret.password
-                delete ret.refresh_token
                 delete ret.email_verification_otp
                 delete ret.password_reset_otp
                 delete ret.two_factor
@@ -175,7 +185,6 @@ const userSchema = new Schema(
             virtuals: true,
             transform: (doc, ret) => {
                 delete ret.password
-                delete ret.refresh_token
                 delete ret.email_verification_otp
                 delete ret.password_reset_otp
                 delete ret.two_factor

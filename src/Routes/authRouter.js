@@ -13,7 +13,7 @@ import {
     resendEmailVerification, resetPassword,
     verifyEmail
 } from "../Controller/authController.js";
-import { updateAccountDetails, updateUserAvatar } from "../Controller/userController.js"; // assumed JWT middleware
+import { addAddress, updateAccountDetails, updateUserAvatar } from "../Controller/userController.js"; // assumed JWT middleware
 
 export default async function authRoutes(fastify, opts) {
     // Apply global auth rate limiter for all routes in this file
@@ -55,6 +55,7 @@ export default async function authRoutes(fastify, opts) {
         authProtectedRoutes.addHook("preHandler", verifyJWT)
 
         authProtectedRoutes.post("/logout", logoutUser)
+        authProtectedRoutes.post("/addAddress", addAddress)
         authProtectedRoutes.post("/change-password", changePassword)
         authProtectedRoutes.get("/me", getCurrentUser)
         authProtectedRoutes.patch("/update-account", updateAccountDetails)

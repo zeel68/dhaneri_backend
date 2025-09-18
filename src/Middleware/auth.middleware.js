@@ -6,7 +6,7 @@ import { Role } from "../Models/roleModel.js";
 
 export async function verifyJWT(request, reply) {
     const token =
-        request.cookies?.accessToken ||
+        // request.cookies?.accessToken ||
         request.headers.authorization?.replace('Bearer ', '')
 
     if (!token) {
@@ -31,6 +31,7 @@ export async function verifyJWT(request, reply) {
         request.user = user
     } catch (error) {
         return reply.code(401).send({
+            status: 401,
             success: false,
             message: error?.message || 'Invalid access token',
         })

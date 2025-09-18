@@ -9,6 +9,7 @@ import { uploadOnCloudinary } from "../utils/upload.js"
 import { Role } from "../Models/roleModel.js";
 import { Store } from "../Models/storeModel.js";
 import { Cart } from "../Models/cartModel.js";
+import { Order } from "../Models/orderModel.js";
 
 // Generate Access and Refresh Tokens
 const generateAccessAndRefereshTokens = async (userId) => {
@@ -399,7 +400,8 @@ const logoutUser = asyncHandler(async (request, reply) => {
 
 // Refresh Access Token
 const refreshAccessToken = asyncHandler(async (request, reply) => {
-    const incomingRefreshToken = request.cookies.refreshToken || request.body.refreshToken
+    const incomingRefreshToken = request.body.refreshToken
+    console.log("refreshToken", incomingRefreshToken);
 
     if (!incomingRefreshToken) {
         return reply.code(401).send(new ApiError(401, "Unauthorized request"))
@@ -410,15 +412,16 @@ const refreshAccessToken = asyncHandler(async (request, reply) => {
         const user = await User.findById(decodedToken?._id)
 
         if (!user) {
-            return reply.code(401).send(new ApiError(401, "Invalid refresh token"))
+            return reply.code(403).send(new ApiError(403, "Invalid refresh token"))
         }
-        console.log(user);
+
+        console.log(incomingRefreshToken, "\n", user.refresh_token);
 
         if (incomingRefreshToken !== user?.refresh_token) {
-            return reply.code(401).send(new ApiError(401, "Refresh token is expired or used"))
+            return reply.code(402).send(new ApiError(402, "Refresh token is expired or used"))
         }
 
-        const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user._id)
+        const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefereshTokens(user._id)
 
         const options = {
             httpOnly: true,
@@ -440,7 +443,7 @@ const refreshAccessToken = asyncHandler(async (request, reply) => {
                 ),
             )
     } catch (error) {
-        return reply.code(401).send(new ApiError(401, error?.message || "Invalid refresh token"))
+        return reply.code(405).send(new ApiError(401, error?.message || "Invalid refresh token"))
     }
 })
 
@@ -597,10 +600,24 @@ const changePassword = asyncHandler(async (request, reply) => {
 
 // Get Current User
 const getCurrentUser = asyncHandler(async (request, reply) => {
-    const user = await User.findById(request.user._id)
+    let user = await User.findById(request.user._id)
+        .populate("address")
         .populate("role_id", "name permissions")
         .populate("store_id", "name domain")
         .select("-password -refresh_token")
+        .lean()
+    // console.log(user._id);
+    // const user_id = user._id
+    const orders = await Order.find({ user_id: user._id }).populate("items.product_id", "name price slug")
+
+
+
+
+
+
+    const cart = await Cart.find({ user_id: user._id })
+    user.orders = orders
+    user.cart = cart
 
     return reply.code(200).send(new ApiResponse(200, user, "User fetched successfully"))
 })
