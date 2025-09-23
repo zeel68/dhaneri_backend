@@ -82,10 +82,10 @@ const addToCart = async (request, reply) => {
 
     console.log("[Stock Quantity]", stockQuantity, "Requested Quantity:", quantity);
 
-    if (stockQuantity < quantity) {
-      console.warn("[Stock Error] Insufficient stock");
-      return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"));
-    }
+    // if (stockQuantity < quantity) {
+    //   console.warn("[Stock Error] Insufficient stock");
+    //   return reply.code(400).send(new ApiResponse(400, {}, "Insufficient stock"));
+    // }
 
     // Step 4: Get or create cart
     const cartQuery = {
@@ -224,7 +224,7 @@ const getCart = async (request, reply) => {
     }
 
     let populatedCart = await Cart.findById(cart._id)
-      .populate("items.product_id", "name price images discount_price stock")
+      .populate("items.product_id", "name price images discount_price compare_price")
       .populate("items.variant_id", "color images price stock_quantity")
       .populate("items.size_id", "size stock priceModifier sku attributes", "ProductSizes")
       .populate("coupon_id", "code discount_type discount_value")
@@ -432,70 +432,81 @@ const clearCart = async (request, reply) => {
   }
 }
 
-// Apply coupon to cart
+
 const applyCoupon = async (request, reply) => {
   try {
-    const { store_id } = request.params
-    const { coupon_code } = request.body
-    const session_id = request.headers["x-session-id"]
-    console.log("session_id", session_id);
+    const { store_id } = request.params;
+    const { coupon_code } = request.body;
+    const session_id = request.headers["x-session-id"];
+
+    if (!store_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Invalid store_id"));
+    }
+
     let user_id;
     if (!session_id) {
       await verifyJWT(request, reply);
-      user_id = request.user?._id
+      user_id = request.user?._id;
       if (!user_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
+        return reply
+          .code(400)
+          .send(new ApiResponse(400, {}, "Session ID or User authentication required"));
       }
     }
-    let cart
+    console.log(store_id, user_id, session_id, coupon_code);
+
+    let cart;
     if (user_id) {
-      cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
+      cart = await Cart.findOne({ user_id, store_id });
     } else if (session_id) {
-      cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
+      cart = await Cart.findOne({ session_id, store_id });
     }
 
     if (!cart || cart.items.length === 0) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Cart is empty"))
+      return reply.code(400).send(new ApiResponse(400, {}, "Cart is empty"));
     }
 
     const coupon = await Coupon.findOne({
       code: coupon_code,
-      store_id: new mongoose.Types.ObjectId(store_id),
+      store_id,
       is_active: true,
-      start_date: { $lte: new Date() },
-      end_date: { $gte: new Date() },
-    })
+      // start_date: { $lte: new Date() },
+      // end_date: { $gte: new Date() },
+    });
 
     if (!coupon) {
-      return reply.code(404).send(new ApiResponse(404, {}, "Invalid or expired coupon"))
+      return reply.code(404).send(new ApiResponse(404, {}, "Invalid or expired coupon"));
     }
 
-    // Check usage limits
+    // usage limit
     if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Coupon usage limit exceeded"))
+      return reply.code(400).send(new ApiResponse(400, {}, "Coupon usage limit exceeded"));
     }
 
-    // Check minimum order value
+    // min order value
     if (coupon.minimum_order_value && cart.subtotal < coupon.minimum_order_value) {
       return reply
         .code(400)
-        .send(new ApiResponse(400, {}, `Minimum order value of ${coupon.minimum_order_value} required`))
+        .send(new ApiResponse(400, {}, `Minimum order value of ${coupon.minimum_order_value} required`));
     }
 
-    cart.coupon_id = coupon._id
-    cart.calculateTotals()
-    await cart.save()
+    cart.coupon_id = coupon._id;
+    cart.calculateTotals();
+    await cart.save();
 
     const populatedCart = await Cart.findById(cart._id)
       .populate("items.product_id", "name price images discount_price")
-      .populate("coupon_id", "code discount_type discount_value")
+      .populate("coupon_id", "code type value");
 
-    return reply.code(200).send(new ApiResponse(200, { cart: populatedCart }, "Coupon applied successfully"))
+    return reply
+      .code(200)
+      .send(new ApiResponse(200, { cart: populatedCart }, "Coupon applied successfully"));
   } catch (error) {
-    request.log?.error?.(error)
-    return reply.code(500).send(new ApiResponse(500, {}, "Error applying coupon"))
+    request.log?.error?.(error);
+    return reply.code(500).send(new ApiResponse(500, {}, "Error applying coupon"));
   }
-}
+};
+
 
 // Validate coupon without applying
 const validateCoupon = async (request, reply) => {

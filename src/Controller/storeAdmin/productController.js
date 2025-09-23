@@ -218,6 +218,7 @@ const updateProduct = async (request, reply) => {
         }
         if (typeof updateData.tags === "string") {
             updateData.tags = JSON.parse(updateData.tags);
+            
         }
         if (typeof updateData.variants === "string") {
             updateData.variants = JSON.parse(updateData.variants);

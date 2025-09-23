@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ref } from 'process';
 const { Schema } = mongoose;
 
 // Order Item Schema
@@ -11,7 +12,12 @@ const orderItemSchema = new Schema({
     },
     variant_id: {
         type: Schema.Types.ObjectId,
-
+        ref: 'ProductVariant',
+        index: true
+    },
+    size_id: {
+        type: Schema.Types.ObjectId,
+        ref: 'ProductSize',
         index: true
     },
     quantity: {

@@ -671,7 +671,7 @@ const getGeographicAnalytics = async (request, reply) => {
         SessionTracking.aggregate([
           {
             $match: {
-              store_id: new mongoose.Types.ObjectId(storeId),
+              store_id: storeId,
               created_at: { $gte: since },
             },
           },

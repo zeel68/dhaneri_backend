@@ -110,7 +110,7 @@ export default async function storefrontRoutes(fastify, opts) {
   // Wishlist Routes (require authentication)
   fastify.post("/store/:store_id/wishlist/add", addToWishlist)
   fastify.get("/store/:store_id/wishlist", getWishlist)
-  fastify.delete("/store/:store_id/wishlist/remove", removeFromWishlist)
+  fastify.post("/store/:store_id/wishlist/remove", removeFromWishlist)
   fastify.delete("/store/:store_id/wishlist/clear", clearWishlist)
   fastify.get("/store/:store_id/wishlist/check/:product_id", checkWishlistStatus)
 

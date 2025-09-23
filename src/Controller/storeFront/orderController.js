@@ -79,6 +79,8 @@ const createOrder = async (request, reply) => {
 
         orderItems.push({
           product_id: product._id,
+          variant_id: item.variant_id || null,
+          size_id: item.size_id || null,
           quantity: item.quantity,
           price: itemPrice,
           total: itemTotal,
@@ -100,8 +102,8 @@ const createOrder = async (request, reply) => {
     // Create order
     const order = await Order.create({
       order_number: orderNumber,
-      store_id: new mongoose.Types.ObjectId(store_id),
-      user_id: new mongoose.Types.ObjectId(user_id),
+      store_id: store_id,
+      user_id: user_id,
       items: orderItems,
       subtotal: Math.round(subtotal * 100) / 100,
       tax: Math.round(tax * 100) / 100,

@@ -28,9 +28,9 @@ const addProductReview = async (request, reply) => {
 
     // Check if user has purchased this product
     const hasPurchased = await Order.findOne({
-      store_id: new mongoose.Types.ObjectId(store_id),
-      user_id: new mongoose.Types.ObjectId(user_id),
-      "items.product_id": new mongoose.Types.ObjectId(product_id),
+      store_id: store_id,
+      user_id: user_id,
+      "items.product_id": product_id,
       status: { $in: ["delivered", "completed"] },
     })
 
