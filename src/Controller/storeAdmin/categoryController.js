@@ -185,7 +185,6 @@ const getStoreCategories = async (request, reply) => {
                     category_id: parent._id,
                 });
                 // console.log("parent", parent._id);
-
                 console.log("sub", subcategories.length);
 
 
@@ -204,7 +203,7 @@ const getStoreCategories = async (request, reply) => {
                         };
                     })
                 );
-                // Temp
+
 
                 return {
                     ...parent.toObject(),

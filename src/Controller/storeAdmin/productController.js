@@ -35,28 +35,23 @@ const addProduct = async (request, reply) => {
 
         // --- Step 1: Insert Sizes ---
         const allSizeDocs = [];
-        const variantSizeMapping = {}; // Maps original size UUID -> MongoDB _id
+        const variantSizeMapping = {};
 
         for (const variant of variants) {
             for (const size of variant.sizes) {
-                const { id, ...sizeData } = size; // remove UUID
+                const { id, ...sizeData } = size;
                 const sizeDoc = new ProductSizes(sizeData);
-                console.log("Hello", sizeData);
-
                 await sizeDoc.save();
                 allSizeDocs.push(sizeDoc);
-                variantSizeMapping[id] = sizeDoc._id; // map old UUID to new Mongo ID
+                variantSizeMapping[id] = sizeDoc._id;
             }
         }
 
         // --- Step 2: Insert Variants ---
         const variantDocs = [];
         for (const variant of variants) {
-            const { id, sizes, ...variantData } = variant; // remove UUID
-
-            // Map size UUIDs to MongoDB _id
+            const { id, sizes, ...variantData } = variant;
             const sizeObjectIds = sizes.map(size => variantSizeMapping[size.id]);
-
             const variantDoc = new ProductVariant({
                 ...variantData,
                 sizes: sizeObjectIds
@@ -65,7 +60,7 @@ const addProduct = async (request, reply) => {
             variantDocs.push(variantDoc);
         }
 
-        // --- Step 3: Insert Product-- -
+        // --- Step 3: Insert Product ---
         const product = await Product.create({
             name,
             description,
@@ -73,13 +68,39 @@ const addProduct = async (request, reply) => {
             category,
             parent_category,
             store_id: storeId,
-            attributes: attributes,
-            stock: stock,
+            attributes,
+            stock,
             images,
             tags,
             slug,
             variants: variantDocs.map(v => v._id),
         });
+
+        // --- Step 4: Add product to store category automatically ---
+        if (category) {
+            const categoryDoc = await StoreCategoryModel.findOne({
+                _id: category,
+                store_id: storeId
+            });
+
+            if (categoryDoc) {
+                categoryDoc.products.push(product._id);
+                await categoryDoc.save();
+            }
+        }
+
+        // Also add to explicitly provided storeCategory if different from category
+        if (storeCategory && storeCategory !== category) {
+            const explicitCategoryDoc = await StoreCategoryModel.findOne({
+                _id: storeCategory,
+                store_id: storeId
+            });
+
+            if (explicitCategoryDoc) {
+                explicitCategoryDoc.products.push(product._id);
+                await explicitCategoryDoc.save();
+            }
+        }
 
         return reply.code(201).send(new ApiResponse(201, product, "Product added successfully"));
     } catch (error) {
@@ -87,6 +108,7 @@ const addProduct = async (request, reply) => {
         return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while adding the product"));
     }
 };
+
 
 
 const getStoreProducts = async (request, reply) => {
@@ -191,9 +213,6 @@ const updateProduct = async (request, reply) => {
         const updateData = { ...request.body, updated_at: new Date() };
 
         // Parse JSON fields if they are strings
-        // if (typeof updateData.attributes === "string") {
-        //     updateData.attributes = JSON.parse(updateData.attributes);
-        // }
         if (typeof updateData.stock === "string") {
             updateData.stock = JSON.parse(updateData.stock);
         }
@@ -210,7 +229,12 @@ const updateProduct = async (request, reply) => {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"));
         }
 
-        // Optional: clean up old variants and sizes
+        // --- Step 1: Handle category changes ---
+        const oldCategoryId = existingProduct.category;
+        const newCategoryId = updateData.category;
+        const storeCategory = updateData.storeCategory;
+
+        // --- Step 2: Clean up old variants and sizes ---
         if (existingProduct.variants?.length > 0) {
             const oldVariants = await ProductVariant.find({ _id: { $in: existingProduct.variants } });
             for (const variant of oldVariants) {
@@ -219,7 +243,7 @@ const updateProduct = async (request, reply) => {
             await ProductVariant.deleteMany({ _id: { $in: existingProduct.variants } });
         }
 
-        // Handle image merging
+        // --- Step 3: Handle image merging ---
         if (updateData.image && Array.isArray(updateData.image) && updateData.image.length > 0) {
             const newImageUrls = updateData.image
                 .map((file) => file?.path || file?.secure_url)
@@ -231,8 +255,8 @@ const updateProduct = async (request, reply) => {
             updateData.images = updateData.images.filter((url) => typeof url === "string" && url.trim());
         }
 
-        // Create new sizes and variants
-        const variantSizeMapping = {}; // uuid -> ObjectId
+        // --- Step 4: Create new sizes and variants ---
+        const variantSizeMapping = {};
         const variantDocs = [];
 
         for (const variant of updateData.variants || []) {
@@ -256,7 +280,7 @@ const updateProduct = async (request, reply) => {
             variantDocs.push(variantDoc._id);
         }
 
-        // Update product
+        // --- Step 5: Update product ---
         const updatedProduct = await Product.findOneAndUpdate(
             { _id: productId, store_id: storeId },
             {
@@ -266,23 +290,64 @@ const updateProduct = async (request, reply) => {
             { new: true }
         ).populate("category").populate("variants");
 
+        // --- Step 6: Handle category updates ---
+        // Remove from old category if category changed
+        if (oldCategoryId && newCategoryId && !oldCategoryId.equals(newCategoryId)) {
+            const oldCategoryDoc = await StoreCategoryModel.findOne({
+                _id: oldCategoryId,
+                store_id: storeId
+            });
+
+            if (oldCategoryDoc) {
+                oldCategoryDoc.products.pull(productId);
+                await oldCategoryDoc.save();
+            }
+        }
+
+        // Add to new category if category is provided and changed
+        if (newCategoryId && (!oldCategoryId || !oldCategoryId.equals(newCategoryId))) {
+            const newCategoryDoc = await StoreCategoryModel.findOne({
+                _id: newCategoryId,
+                store_id: storeId
+            });
+
+            if (newCategoryDoc && !newCategoryDoc.products.includes(productId)) {
+                newCategoryDoc.products.push(productId);
+                await newCategoryDoc.save();
+            }
+        }
+
+        // Handle storeCategory (additional category assignment)
+        if (storeCategory) {
+            const explicitCategoryDoc = await StoreCategoryModel.findOne({
+                _id: storeCategory,
+                store_id: storeId
+            });
+
+            if (explicitCategoryDoc && !explicitCategoryDoc.products.includes(productId)) {
+                explicitCategoryDoc.products.push(productId);
+                await explicitCategoryDoc.save();
+            }
+        }
+
+        // If category was removed (set to null/undefined), remove from old category
+        if ((newCategoryId === null || newCategoryId === undefined) && oldCategoryId) {
+            const oldCategoryDoc = await StoreCategoryModel.findOne({
+                _id: oldCategoryId,
+                store_id: storeId
+            });
+
+            if (oldCategoryDoc) {
+                oldCategoryDoc.products.pull(productId);
+                await oldCategoryDoc.save();
+            }
+        }
+
         return reply.code(200).send(new ApiResponse(200, updatedProduct, "Product updated successfully"));
     } catch (error) {
         request.log?.error?.(error);
 
-        // Cleanup newly uploaded images if update fails
-        const { image } = request.body;
-        if (image && Array.isArray(image)) {
-            for (const file of image) {
-                if (file.public_id) {
-                    try {
-                        await deleteFromCloudinary(file.public_id);
-                    } catch (cleanupError) {
-                        console.error("Error cleaning up uploaded file:", cleanupError);
-                    }
-                }
-            }
-        }
+
 
         return reply.code(500).send(new ApiResponse(500, {}, "Something went wrong while updating the product"));
     }
