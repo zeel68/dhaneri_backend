@@ -59,6 +59,7 @@ const addProduct = async (request, reply) => {
             await variantDoc.save();
             variantDocs.push(variantDoc);
         }
+        console.log(tags);
 
         // --- Step 3: Insert Product ---
         const product = await Product.create({
@@ -71,7 +72,7 @@ const addProduct = async (request, reply) => {
             attributes,
             stock,
             images,
-            tags,
+            // tags,
             slug,
             variants: variantDocs.map(v => v._id),
         });
@@ -218,7 +219,7 @@ const updateProduct = async (request, reply) => {
         }
         if (typeof updateData.tags === "string") {
             updateData.tags = JSON.parse(updateData.tags);
-            
+
         }
         if (typeof updateData.variants === "string") {
             updateData.variants = JSON.parse(updateData.variants);
@@ -280,6 +281,7 @@ const updateProduct = async (request, reply) => {
             await variantDoc.save();
             variantDocs.push(variantDoc._id);
         }
+        console.log(updateData.tags);
 
         // --- Step 5: Update product ---
         const updatedProduct = await Product.findOneAndUpdate(

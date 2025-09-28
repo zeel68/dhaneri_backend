@@ -153,11 +153,8 @@ const productSchema = new mongoose.Schema({
 
     tags: [
         {
-            tagId: { type: Schema.Types.ObjectId, ref: 'Tag' },
             tagName: String,
-            tagType: String,
             value: Schema.Types.Mixed,
-            category: String, // StoreCategory enum value
         },
     ],
 
