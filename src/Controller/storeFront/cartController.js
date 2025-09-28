@@ -224,7 +224,7 @@ const getCart = async (request, reply) => {
     }
 
     let populatedCart = await Cart.findById(cart._id)
-      .populate("items.product_id", "name price images discount_price compare_price")
+      .populate("items.product_id", "name price images compare_price ")
       .populate("items.variant_id", "color images price stock_quantity")
       .populate("items.size_id", "size stock priceModifier sku attributes", "ProductSizes")
       .populate("coupon_id", "code discount_type discount_value")
