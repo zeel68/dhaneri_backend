@@ -5,6 +5,7 @@ import { Store } from "../../Models/storeModel.js"
 import { StoreCategoryModel } from "../../Models/storeCategoryModel.js"
 import { deleteFromCloudinary } from "../../utils/upload.js";
 import { response } from "express";
+import { TrendingProduct } from "../../Models/homepageModel.js";
 const addProduct = async (request, reply) => {
     try {
         const storeId = request.user.store_id;
@@ -210,7 +211,7 @@ const getProductById = async (request, reply) => {
 const updateProduct = async (request, reply) => {
     try {
         const { productId } = request.params;
-        const storeId = request.user.store_id;
+        const storeId = request.user.store_id || request.body.store_id;
         const updateData = { ...request.body, updated_at: new Date() };
 
         // Parse JSON fields if they are strings
@@ -364,7 +365,7 @@ const deleteProduct = async (request, reply) => {
         const storeId = request.user.store_id
 
         const deleted = await Product.findOneAndDelete({ _id: productId, store_id: storeId })
-
+        await TrendingProduct.findByIdAndDelete({ product_id: productId })
         if (!deleted) {
             return reply.code(404).send(new ApiResponse(404, {}, "Product not found"))
         }
