@@ -151,12 +151,12 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/analytics/inventory", getInventoryAnalytics)
 
   // === ADVANCED ANALYTICS ROUTES ===
-  fastify.get("/analytics/customer-behavior", getCustomerBehaviorAnalytics)
-  fastify.get("/analytics/product-performance", getProductPerformanceAnalytics)
-  fastify.get("/analytics/geographic", getGeographicAnalytics)
-  fastify.get("/analytics/realtime", getRealTimeAnalytics)
-  fastify.get("/analytics/getActiveSessions", getActiveSessions)
-  fastify.get("/analytics/conversion-funnel", getConversionFunnelAnalytics)
+  fastify.get("/reports/customerbehavior", getCustomerBehaviorAnalytics)
+  fastify.get("/reports/productperformance", getProductPerformanceAnalytics)
+  fastify.get("/reports/geographic", getGeographicAnalytics)
+  fastify.get("/reports/realtime", getRealTimeAnalytics)
+  fastify.get("/reports/getActiveSessions", getActiveSessions)
+  fastify.get("/reports/conversionfunnel", getConversionFunnelAnalytics)
 
   // === TRACKING ROUTES ===
   fastify.post("/track/session/:store_id", trackSession)
