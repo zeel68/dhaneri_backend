@@ -1,5 +1,36 @@
+import { config } from 'dotenv';
 import mongoose from 'mongoose';
 const { Schema } = mongoose;
+const attributeSchema = new Schema(
+    {
+        name: String,
+        type: String,
+        is_required: Boolean,
+        default_value: String,
+    },
+    { _id: false }
+);
+
+const filterSchema = new Schema(
+    {
+        name: String,
+        type: {
+            type: String,
+            enum: ["text", "number", "range", "select", "multiselect", "boolean"],
+        },
+        options: [String],
+        is_required: Boolean,
+    },
+    { _id: false }
+);
+
+const configSchema = new Schema(
+    {
+        filters: [filterSchema],
+        attributes: [attributeSchema],
+    },
+    { _id: false }
+);
 
 const categorySchema = new Schema({
     name: {
@@ -11,12 +42,15 @@ const categorySchema = new Schema({
         maxlength: [100, 'Category name cannot exceed 100 characters'],
         index: true
     },
+    slug: String,
     image_url: String,
+    config: configSchema,
     // Tags configuration per category
     tag_schema: [{
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'Tag'
     }],
+    is_active: Boolean,
     created_at: {
         type: Date,
         default: Date.now

@@ -3,7 +3,7 @@ import { addGlobalCategory, getGlobalCategories } from "../Controller/superAdmin
 import { verifyJWT, isSuperAdmin } from "../Middleware/auth.middleware.js";
 import { addStoreCategory, getStoreCategories, getStoreCategory } from "../Controller/storeAdmin/categoryController.js";
 import { getStoreDetails } from "../Controller/storeAdmin/storeController.js";
-import { createStore } from "../Controller/superAdmin/storeController.js";
+import { createStore, getAllStores } from "../Controller/superAdmin/storeController.js";
 
 // Category Controllers
 
@@ -36,7 +36,7 @@ export default async function superAdminRouter(fastify, options) {
     // fastify.get("/products/inventory/out-of-stock", getOutOfStockProducts)
 
     // === STORE CONFIGURATION ROUTES ===
-    fastify.get("/store", getStoreDetails)
+    fastify.get("/stores", getAllStores)
     fastify.post("/store", createStore)
     // fastify.put("/store/config", updateStoreConfig)
     // fastify.get("/store/config", getStoreConfig)
