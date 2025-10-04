@@ -101,7 +101,7 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.post("/store/:store_id/cart/add", addToCart)
   fastify.get("/store/:store_id/cart", getCart)
   fastify.put("/store/:store_id/cart/update", updateCartItem)
-  fastify.delete("/store/:store_id/cart/remove", removeCartItem)
+  fastify.post("/store/:store_id/cart/remove", removeCartItem)
   fastify.delete("/store/:store_id/cart/clear", clearCart)
   fastify.post("/store/:store_id/cart/coupon", applyCoupon)
   fastify.post("/store/:store_id/cart/coupon/validate", validateCoupon)

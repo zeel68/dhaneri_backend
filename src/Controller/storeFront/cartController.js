@@ -355,6 +355,8 @@ const updateCartItem = async (request, reply) => {
 const removeCartItem = async (request, reply) => {
   try {
     const { store_id } = request.params
+    console.log(request.body);
+
     const { product_id, variant_id } = request.body
     const session_id = request.headers["x-session-id"]
     console.log("session_id", session_id);
