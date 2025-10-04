@@ -25,7 +25,7 @@ const getHomepageData = async (request, reply) => {
     }
 
     // Get homepage configuration
-    const [heroSlides, trendingCategories,trendingProducts, testimonials] = await Promise.all([
+    const [heroSlides, trendingCategories, trendingProducts, testimonials] = await Promise.all([
       HeroSlide.find({ store_id, is_active: true }).sort({ display_order: 1 }),
       TrendingCategory.find({ store_id })
         // .sort({ display_order: 1 })
@@ -34,8 +34,8 @@ const getHomepageData = async (request, reply) => {
         ),
 
       TrendingProduct.find({ store_id: store_id })
-          .populate("product_id", "name description slug price images stock ratings compare_price")
-          .sort({ display_order: 1 }),
+        .populate("product_id", "name description slug price images stock ratings compare_price")
+        .sort({ display_order: 1 }),
       Testimonial.find({ store_id }).sort({ createdAt: -1 }),
     ])
 

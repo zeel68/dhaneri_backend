@@ -23,7 +23,7 @@ import {
   removeCartItem,
   clearCart,
   applyCoupon,
-  validateCoupon,
+
   removeCoupon,
 } from "../Controller/storeFront/cartController.js"
 
@@ -104,7 +104,7 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.post("/store/:store_id/cart/remove", removeCartItem)
   fastify.delete("/store/:store_id/cart/clear", clearCart)
   fastify.post("/store/:store_id/cart/coupon", applyCoupon)
-  fastify.post("/store/:store_id/cart/coupon/validate", validateCoupon)
+  // fastify.post("/store/:store_id/cart/coupon/validate", validateCoupon)
   fastify.delete("/store/:store_id/cart/coupon", { preHandler: verifyJWT }, removeCoupon)
 
   // Wishlist Routes (require authentication)

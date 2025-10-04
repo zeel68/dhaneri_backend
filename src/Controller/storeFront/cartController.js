@@ -434,7 +434,6 @@ const clearCart = async (request, reply) => {
   }
 }
 
-
 const applyCoupon = async (request, reply) => {
   try {
     const { store_id } = request.params;
@@ -455,7 +454,6 @@ const applyCoupon = async (request, reply) => {
           .send(new ApiResponse(400, {}, "Session ID or User authentication required"));
       }
     }
-    console.log(store_id, user_id, session_id, coupon_code);
 
     let cart;
     if (user_id) {
@@ -469,156 +467,280 @@ const applyCoupon = async (request, reply) => {
     }
 
     const coupon = await Coupon.findOne({
-      code: coupon_code,
+      code: coupon_code.toUpperCase(),
       store_id,
       is_active: true,
-      // start_date: { $lte: new Date() },
-      // end_date: { $gte: new Date() },
     });
 
     if (!coupon) {
       return reply.code(404).send(new ApiResponse(404, {}, "Invalid or expired coupon"));
     }
 
-    // usage limit
-    if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+    // Check if coupon is valid using the virtual
+    if (!coupon.is_valid) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Coupon is not valid"));
+    }
+
+    // Check usage limit
+    if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
       return reply.code(400).send(new ApiResponse(400, {}, "Coupon usage limit exceeded"));
     }
 
-    // min order value
-    if (coupon.minimum_order_value && cart.subtotal < coupon.minimum_order_value) {
+    // Calculate cart subtotal
+    const subtotal = cart.items.reduce((sum, item) => {
+      return sum + (item.price_at_addition * item.quantity);
+    }, 0);
+
+    // Check minimum order amount
+    if (coupon.minimum_order_amount && subtotal < coupon.minimum_order_amount) {
       return reply
         .code(400)
-        .send(new ApiResponse(400, {}, `Minimum order value of ${coupon.minimum_order_value} required`));
+        .send(new ApiResponse(400, {}, `Minimum order value of ${coupon.minimum_order_amount} required`));
     }
 
+    // Calculate discount based on coupon type
+    let discount_amount = 0;
+
+    switch (coupon.type) {
+      case 'fixed':
+        discount_amount = coupon.value;
+        break;
+      case 'percentage':
+        discount_amount = (subtotal * coupon.value) / 100;
+        // Apply maximum discount limit if set
+        if (coupon.maximum_discount_amount && discount_amount > coupon.maximum_discount_amount) {
+          discount_amount = coupon.maximum_discount_amount;
+        }
+        break;
+      case 'free_shipping':
+        // Handle free shipping - you might have a shipping_fee field
+        discount_amount = cart.shipping_fee || 0;
+        break;
+    }
+
+    // Ensure discount doesn't exceed subtotal
+    discount_amount = Math.min(discount_amount, subtotal);
+
+    const total_after_discount = subtotal - discount_amount;
+
+    // Update cart with discount calculations
     cart.coupon_id = coupon._id;
-    cart.calculateTotals();
+    cart.discount_amount = discount_amount;
+    cart.subtotal = subtotal;
+    cart.total = total_after_discount; // This is the key line you're missing
+    cart.updated_at = new Date();
+
     await cart.save();
 
+    // Increment coupon usage count
+    await Coupon.findByIdAndUpdate(coupon._id, {
+      $inc: { usage_count: 1 }
+    });
+
+    // Populate cart for response
     const populatedCart = await Cart.findById(cart._id)
-      .populate("items.product_id", "name price images discount_price")
-      .populate("coupon_id", "code type value");
+      .populate("items.product_id", "name price images discount_price compare_price")
+      .populate("items.variant_id", "color images")
+      // .populate("items.size_id", "size stock priceModifier sku")
+      .populate("coupon_id", "code type value description")
+      .lean();
+
+    // Format the response to include discount details
+    const response = {
+      ...populatedCart,
+      discount_amount: discount_amount,
+      subtotal: subtotal,
+      total: total_after_discount, // This should now show the discounted total
+      coupon_details: {
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+        discount_applied: discount_amount
+      }
+    };
 
     return reply
       .code(200)
-      .send(new ApiResponse(200, { cart: populatedCart }, "Coupon applied successfully"));
+      .send(new ApiResponse(200, { cart: response }, "Coupon applied successfully"));
+
   } catch (error) {
     request.log?.error?.(error);
     return reply.code(500).send(new ApiResponse(500, {}, "Error applying coupon"));
   }
 };
 
+// Helper functions for device detection
+const getDeviceType = (userAgent) => {
+  if (/mobile/i.test(userAgent)) return "mobile";
+  if (/tablet/i.test(userAgent)) return "tablet";
+  return "desktop";
+};
 
-// Validate coupon without applying
-const validateCoupon = async (request, reply) => {
-  try {
-    const { store_id } = request.params
-    const { coupon_code } = request.body
-    const user_id = request.user?._id
-    const session_id = request.headers["x-session-id"]
+const getBrowserInfo = (userAgent) => {
+  if (/chrome/i.test(userAgent)) return "Chrome";
+  if (/firefox/i.test(userAgent)) return "Firefox";
+  if (/safari/i.test(userAgent)) return "Safari";
+  if (/edge/i.test(userAgent)) return "Edge";
+  return "Unknown";
+};
 
-    if (!coupon_code) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Coupon code is required"))
-    }
-
-    let cart
-    if (user_id) {
-      cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
-    } else if (session_id) {
-      cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
-    }
-
-    if (!cart || cart.items.length === 0) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Cart is empty"))
-    }
-
-    const coupon = await Coupon.findOne({
-      code: coupon_code,
-      store_id: new mongoose.Types.ObjectId(store_id),
-      is_active: true,
-      start_date: { $lte: new Date() },
-      end_date: { $gte: new Date() },
-    })
-
-    if (!coupon) {
-      return reply.code(404).send(new ApiResponse(404, {}, "Invalid or expired coupon"))
-    }
-
-    // Check usage limits
-    if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
-      return reply.code(400).send(new ApiResponse(400, {}, "Coupon usage limit exceeded"))
-    }
-
-    // Check minimum order value
-    if (coupon.minimum_order_value && cart.subtotal < coupon.minimum_order_value) {
-      return reply
-        .code(400)
-        .send(new ApiResponse(400, {}, `Minimum order value of ${coupon.minimum_order_value} required`))
-    }
-
-    // Calculate discount
-    let discountAmount = 0
-    if (coupon.discount_type === "percentage") {
-      discountAmount = (cart.subtotal * coupon.discount_value) / 100
-      if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
-        discountAmount = coupon.max_discount_amount
-      }
-    } else if (coupon.discount_type === "fixed") {
-      discountAmount = coupon.discount_value
-    }
-
-    return reply.code(200).send(
-      new ApiResponse(
-        200,
-        {
-          coupon: {
-            code: coupon.code,
-            description: coupon.description,
-            discount_type: coupon.discount_type,
-            discount_value: coupon.discount_value,
-            discount_amount: Math.round(discountAmount * 100) / 100,
-          },
-          valid: true,
-        },
-        "Coupon is valid",
-      ),
-    )
-  } catch (error) {
-    request.log?.error?.(error)
-    return reply.code(500).send(new ApiResponse(500, {}, "Error validating coupon"))
-  }
-}
+const getOSInfo = (userAgent) => {
+  if (/windows/i.test(userAgent)) return "Windows";
+  if (/macintosh|mac os/i.test(userAgent)) return "MacOS";
+  if (/linux/i.test(userAgent)) return "Linux";
+  if (/android/i.test(userAgent)) return "Android";
+  if (/ios|iphone|ipad/i.test(userAgent)) return "iOS";
+  return "Unknown";
+};
 
 // Remove coupon from cart
 const removeCoupon = async (request, reply) => {
   try {
-    const { store_id } = request.params
-    const user_id = request.user?._id
-    const session_id = request.headers["x-session-id"]
+    const { store_id } = request.params;
+    const session_id = request.headers["x-session-id"];
 
-    let cart
+    if (!store_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Invalid store_id"));
+    }
+
+    let user_id;
+    if (!session_id) {
+      await verifyJWT(request, reply);
+      user_id = request.user?._id;
+      if (!user_id) {
+        return reply
+          .code(400)
+          .send(new ApiResponse(400, {}, "Session ID or User authentication required"));
+      }
+    }
+
+    let cart;
     if (user_id) {
-      cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
+      cart = await Cart.findOne({ user_id, store_id });
     } else if (session_id) {
-      cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
+      cart = await Cart.findOne({ session_id, store_id });
     }
 
     if (!cart) {
-      return reply.code(404).send(new ApiResponse(404, {}, "Cart not found"))
+      return reply.code(404).send(new ApiResponse(404, {}, "Cart not found"));
     }
 
-    cart.coupon_id = null
-    cart.calculateTotals()
-    await cart.save()
+    // Store previous values for event logging
+    const previousCartTotal = cart.total_amount;
+    const previousCouponId = cart.coupon_id;
 
-    const populatedCart = await Cart.findById(cart._id).populate("items.product_id", "name price images discount_price")
+    if (!cart.coupon_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "No coupon applied to cart"));
+    }
 
-    return reply.code(200).send(new ApiResponse(200, { cart: populatedCart }, "Coupon removed successfully"))
+    // Remove coupon
+    cart.coupon_id = null;
+    cart.discount_amount = 0;
+
+    // Recalculate totals without coupon
+    const subtotal = cart.items.reduce((sum, item) => {
+      return sum + (item.price_at_addition * item.quantity);
+    }, 0);
+
+    cart.subtotal = subtotal;
+    cart.total_amount = subtotal;
+    cart.updated_at = new Date();
+
+    await cart.save();
+
+    // Log coupon removal event
+    try {
+      const cartEvent = new CartEvent({
+        store_id,
+        user_id: user_id || null,
+        session_id: session_id || null,
+        product_id: null,
+        action: "update",
+        quantity: cart.items.reduce((sum, item) => sum + item.quantity, 0),
+        price: 0,
+        total_value: subtotal,
+        ip_address: request.ip,
+        user_agent: request.headers["user-agent"],
+        cart_total_before: previousCartTotal,
+        cart_total_after: subtotal,
+        cart_items_count: cart.items.reduce((sum, item) => sum + item.quantity, 0),
+        device_info: {
+          type: getDeviceType(request.headers["user-agent"]),
+          browser: getBrowserInfo(request.headers["user-agent"]),
+          os: getOSInfo(request.headers["user-agent"]),
+        },
+      });
+
+      await cartEvent.save();
+    } catch (eventError) {
+      console.error("Failed to log cart event:", eventError);
+    }
+
+    // Populate cart for response
+    const populatedCart = await Cart.findById(cart._id)
+      .populate("items.product_id", "name price images discount_price sku")
+      .populate("items.variant_id", "name price sku")
+      // .populate("items.size_id", "name value")
+      .populate("store_details", "name currency")
+      .lean();
+
+    // Format the response
+    const response = {
+      _id: populatedCart._id,
+      user_id: populatedCart.user_id,
+      session_id: populatedCart.session_id,
+      store_id: populatedCart.store_id,
+      store_details: populatedCart.store_details,
+      coupon: null,
+      items: populatedCart.items.map(item => ({
+        _id: item._id,
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        size_id: item.size_id,
+        quantity: item.quantity,
+        price_at_addition: item.price_at_addition,
+        added_at: item.added_at,
+        product_details: item.product_id ? {
+          _id: item.product_id._id,
+          name: item.product_id.name,
+          price: item.product_id.price,
+          discount_price: item.product_id.discount_price,
+          images: item.product_id.images,
+          sku: item.product_id.sku
+        } : null,
+        variant_details: item.variant_id ? {
+          _id: item.variant_id._id,
+          name: item.variant_id.name,
+          price: item.variant_id.price,
+          sku: item.variant_id.sku
+        } : null,
+        size_details: item.size_id ? {
+          _id: item.size_id._id,
+          name: item.size_id.name,
+          value: item.size_id.value
+        } : null,
+        item_total: item.price_at_addition * item.quantity
+      })),
+      summary: {
+        subtotal: subtotal,
+        discount_amount: 0,
+        total_amount: subtotal,
+        items_count: populatedCart.items.reduce((count, item) => count + item.quantity, 0),
+        unique_items_count: populatedCart.items.length
+      },
+      created_at: populatedCart.created_at,
+      updated_at: populatedCart.updated_at,
+      expires_at: populatedCart.expires_at
+    };
+
+    return reply
+      .code(200)
+      .send(new ApiResponse(200, { cart: response }, "Coupon removed successfully"));
+
   } catch (error) {
-    request.log?.error?.(error)
-    return reply.code(500).send(new ApiResponse(500, {}, "Error removing coupon"))
+    request.log?.error?.(error);
+    return reply.code(500).send(new ApiResponse(500, {}, "Error removing coupon"));
   }
-}
+};
 
-export { addToCart, getCart, updateCartItem, removeCartItem, clearCart, applyCoupon, validateCoupon, removeCoupon }
+export { addToCart, getCart, updateCartItem, removeCartItem, clearCart, applyCoupon, removeCoupon }

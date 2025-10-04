@@ -38,7 +38,7 @@ export const verifyStoreAccess = async (request, reply) => {
         const userRole = await Role.findById(request.user.role_id)
         console.log(userRole)
         if (userRole.name === "super_admin") {
-           return
+            return
         }
 
         // Store owner can only access their own store

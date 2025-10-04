@@ -13,7 +13,7 @@ const getHomepageConfig = async (request, reply) => {
         console.warn("Home Page")
 
         // Get all dynamic homepage data
-        const [heroSlides, trendingCategories,trendingProducts, testimonials] = await Promise.all([
+        const [heroSlides, trendingCategories, trendingProducts, testimonials] = await Promise.all([
             HeroSlide.find({ store_id: storeId, is_active: true }).sort({ display_order: 1 }),
             TrendingCategory.find({ store_id: storeId })
                 .sort({ display_order: 1 })
@@ -28,13 +28,13 @@ const getHomepageConfig = async (request, reply) => {
                 }),
             TrendingProduct.find({ store_id: storeId })
                 .sort({ display_order: 1 }),
-                // .populate("product_id", "name description price images stock ratings"),
+            // .populate("product_id", "name description price images stock ratings"),
             //
-                
+
             Testimonial.find({ store_id: storeId }).sort({ createdAt: -1 }),
         ])
-        console.log("prod",trendingProducts);
-        
+        console.log("prod", trendingProducts);
+
 
         const homepageConfig = {
             heroSlides,
