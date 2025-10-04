@@ -125,7 +125,7 @@ const addToCart = async (request, reply) => {
       });
     }
 
-    // Step 6: Clean up invalid product IDs before saving
+
     console.log("[Validation] Filtering invalid products before saving cart...");
 
     const validItems = [];
