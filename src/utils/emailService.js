@@ -1,8 +1,10 @@
 import nodemailer from "nodemailer"
 import { ApiError } from "./ApiError.js"
+import dotenv from "dotenv";
 
 class EmailService {
   constructor() {
+    dotenv.config({ path: './.env' });
     this.transporter = null
     this.initializeTransporter()
   }
@@ -19,7 +21,10 @@ class EmailService {
             pass: process.env.EMAIL_PASS,
           },
         })
-      } else {
+      }
+      else {
+        console.log("use ethereal email");
+
         const testAccount = await nodemailer.createTestAccount()
         this.transporter = nodemailer.createTransport({
           host: "smtp.ethereal.email",
@@ -33,12 +38,14 @@ class EmailService {
       }
 
       await this.transporter.verify()
+
       console.log("✅ Email service initialized successfully")
     } catch (error) {
       console.error("❌ Email service initialization failed:", error)
       throw new ApiError(500, "Email service initialization failed")
     }
   }
+
   async sendEmail({ to, subject, html, text }) {
     try {
       const mailOptions = {
@@ -50,7 +57,7 @@ class EmailService {
       }
 
       const info = await this.transporter.sendMail(mailOptions)
-
+      console.log("Email sent: %s", info, info.messageId)
       if (process.env.NODE_ENV !== "production") {
         console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info))
       }
@@ -85,27 +92,73 @@ class EmailService {
     }
   }
 
-  getPasswordResetTemplate(name, resetLink) {
+  getEmailVerificationTemplate(name, otp, expiresIn) {
+    return {
+      subject: "Email Verification",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Email Verification</h2>
+          <p>Hi ${name},</p>
+          <p>Thank you for registering with us. Please use the following OTP to verify your email address:</p>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
+            <h1 style="font-size: 32px; letter-spacing: 5px; margin: 0;">${otp}</h1>
+          </div>
+          <p>This OTP will expire in ${expiresIn}.</p>
+          <p>If you didn't request this verification, please ignore this email.</p>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">This email was sent from our platform. Please do not reply to this email.</p>
+        </div>
+      `,
+      text: `Hi ${name}, Your email verification OTP is: ${otp}. This OTP will expire in ${expiresIn}.`,
+    }
+  }
+
+  getPasswordResetTemplate(name, otp, expiresIn) {
     return {
       subject: "Password Reset Request",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Password Reset Request</h2>
           <p>Hi ${name},</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" 
-               style="background-color: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Reset Password
-            </a>
+          <p>We received a request to reset your password. Please use the following OTP to reset your password:</p>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
+            <h1 style="font-size: 32px; letter-spacing: 5px; margin: 0;">${otp}</h1>
           </div>
-          <p>This link will expire in 1 hour for security reasons.</p>
+          <p>This OTP will expire in ${expiresIn}.</p>
           <p>If you didn't request this password reset, please ignore this email.</p>
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
           <p style="color: #666; font-size: 12px;">This email was sent from our platform. Please do not reply to this email.</p>
         </div>
       `,
-      text: `Password reset requested for ${name}. Reset your password: ${resetLink}`,
+      text: `Hi ${name}, Your password reset OTP is: ${otp}. This OTP will expire in ${expiresIn}.`,
+    }
+  }
+
+  getLoginNotificationTemplate(name, loginTime, loginLocation) {
+    return {
+      subject: "New Login to Your Account",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">New Login to Your Account</h2>
+          <p>Hi ${name},</p>
+          <p>We detected a new login to your account:</p>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Date & Time:</strong> ${loginTime}</p>
+            <p><strong>Location:</strong> ${loginLocation || "Unknown"}</p>
+          </div>
+          <p>If this was you, you can safely ignore this email.</p>
+          <p>If you didn't recognize this login, please secure your account immediately.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}/account/security" 
+               style="background-color: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Secure Your Account
+            </a>
+          </div>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">This email was sent from our platform. Please do not reply to this email.</p>
+        </div>
+      `,
+      text: `Hi ${name}, We detected a new login to your account on ${loginTime} from ${loginLocation || "Unknown"}. If this wasn't you, please secure your account immediately.`,
     }
   }
 
@@ -173,8 +226,21 @@ class EmailService {
     return await this.sendEmail({ to, ...template })
   }
 
-  async sendPasswordResetEmail(to, name, resetLink) {
-    const template = this.getPasswordResetTemplate(name, resetLink)
+  async sendEmailVerificationEmail(to, name, otp, expiresIn) {
+    console.log("Sending email verification to:", to);
+
+    const template = this.getEmailVerificationTemplate(name, otp, expiresIn)
+
+    return await this.sendEmail({ to, ...template })
+  }
+
+  async sendPasswordResetEmail(to, name, otp, expiresIn) {
+    const template = this.getPasswordResetTemplate(name, otp, expiresIn)
+    return await this.sendEmail({ to, ...template })
+  }
+
+  async sendLoginNotificationEmail(to, name, loginTime, loginLocation) {
+    const template = this.getLoginNotificationTemplate(name, loginTime, loginLocation)
     return await this.sendEmail({ to, ...template })
   }
 

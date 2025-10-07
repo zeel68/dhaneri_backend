@@ -41,7 +41,6 @@ const userSchema = new Schema(
         },
         phone_number: {
             type: String,
-            required: [true, "Phone number is required"],
             unique: [true, "Phone number already exists"],
             index: true,
             trim: true,
