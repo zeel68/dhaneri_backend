@@ -39,9 +39,9 @@ const createOrder = async (request, reply) => {
           return reply.code(400).send(new ApiResponse(400, {}, "Some products in cart are no longer available"))
         }
 
-        if (item.product_id.stock.quantity < item.quantity) {
-          return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${item.product_id.name}`))
-        }
+        // if (item.product_id.stock.quantity < item.quantity) {
+        //   return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${item.product_id.name}`))
+        // }
 
         const itemPrice = item.product_id.discount_price || item.product_id.price
         const itemTotal = itemPrice * item.quantity

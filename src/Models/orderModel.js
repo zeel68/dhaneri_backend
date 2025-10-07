@@ -187,18 +187,18 @@ orderSchema.pre('save', async function (next) {
     if (!userExists) throw new Error('Specified user does not exist');
 
     // Validate order items
-    for (const item of this.items) {
-        const productExists = await mongoose.model('Product').exists({ _id: item.product_id });
-        if (!productExists) throw new Error(`Product ${item.product_id} does not exist`);
+    // for (const item of this.items) {
+    //     const productExists = await mongoose.model('Product').exists({ _id: item.product_id });
+    //     if (!productExists) throw new Error(`Product ${item.product_id} does not exist`);
 
-        if (item.variant_id) {
-            const variantExists = await mongoose.model('product').exists({
-                _id: item.product_id,
-                // product_id: item.product_id
-            });
-            if (!variantExists) throw new Error(`Variant ${item.variant_id} does not exist for product ${item.product_id}`);
-        }
-    }
+    //     if (item.variant_id) {
+    //         const variantExists = await mongoose.model('product').exists({
+    //             _id: item.product_id,
+    //             // product_id: item.product_id
+    //         });
+    //         if (!variantExists) throw new Error(`Variant ${item.variant_id} does not exist for product ${item.product_id}`);
+    //     }
+    // }
 
     next();
 });
