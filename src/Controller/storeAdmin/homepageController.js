@@ -157,6 +157,8 @@ const deleteHeroSlide = async (request, reply) => {
         const deletedSlide = await HeroSlide.findOneAndDelete({ _id: slideId, store_id: storeId })
 
         if (!deletedSlide) {
+            console.log(deleteHeroSlide);
+
             throw new ApiError(404, "Hero slide not found")
         }
 

@@ -46,6 +46,7 @@ import {
   addTrendingCategory,
   addTrendingProduct,
   createHeroSlide,
+  deleteHeroSlide,
   getHeroSlides,
   getHomepageConfig,
   getTrendingCategories,
@@ -199,6 +200,7 @@ export default async function storeAdminRoutes(fastify, options) {
   fastify.get("/homepage/config", getHomepageConfig)
   fastify.get("/homepage/hero", getHeroSlides)
   fastify.post("/homepage/hero", createHeroSlide)
+  fastify.delete("/homepage/hero/:slideId", deleteHeroSlide)
   fastify.put("/homepage/hero/:slideId", updateHeroSlide)
   fastify.get("/homepage/trendingCategory", getTrendingCategories)
   fastify.post("/homepage/trendingCategory", addTrendingCategory)
