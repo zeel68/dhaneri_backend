@@ -132,7 +132,6 @@ const getStoreProducts = async (request, reply) => {
             date_from,
             date_to,
         } = request.query
-        console.log(request.query);
 
         const skip = (page - 1) * limit
         const filter = { store_id: storeId }

@@ -122,38 +122,87 @@ const getCategoryAttributes = async (request, reply) => {
   }
 }
 
+
+const populateProducts = {
+  path: "products",
+  model: "Product",
+  populate: {
+    path: "variants",
+    model: "ProductVariant",
+    populate: {
+      path: "sizes",
+      model: "ProductSizes",
+    },
+  },
+};
+
+
 const getCategoryProducts = async (request, reply) => {
   try {
     const { slug, store_id } = request.params;
 
-    if (!slug) {
-      return reply.code(400).send(new ApiResponse(400, {}, "slug is required"));
+    // 1. Validate Input
+    if (!slug || !store_id) {
+      return reply.code(400).send(
+        new ApiResponse(400, {}, "Both 'slug' and 'store_id' are required parameters.")
+      );
     }
 
-    const categories = await StoreCategoryModel.find({ slug, store_id })
-      .populate({
-        path: "products", // populate the products array
-        model: "Product",
-        populate: {
-          path: "variants", // populate the variants array within products
-          model: "ProductVariant",
-          populate: {
-            path: "sizes",
-            model: "ProductSizes"
-          }
+    // 2. Find the parent category first.
+    const parentCategory = await StoreCategoryModel.findOne({ slug, store_id });
+    if (!parentCategory) {
+      return reply.code(404).send(
+        new ApiResponse(404, {}, "Category not found.")
+      );
+    }
+
+    // 3. Find all direct subcategories of the parent.
+    const subCategories = await StoreCategoryModel.find({ category_id: parentCategory._id });
+
+    // 4. Create a single list of all category IDs (parent + subcategories).
+    const allCategoryIds = [parentCategory._id, ...subCategories.map(sc => sc._id)];
+
+    // 5. Fetch all these categories in ONE database call and populate their products.
+    // This is much more efficient than populating the parent and subs separately.
+    const allRelatedCategories = await StoreCategoryModel.find({ _id: { $in: allCategoryIds } })
+      .populate(populateProducts);
+
+    // 6. Process the results to build the final response.
+    const productMap = new Map(); // Use a Map for efficient de-duplication by ID.
+    const subCategoryNames = [];
+
+    for (const category of allRelatedCategories) {
+      // If it's a subcategory, add its name to our list.
+      if (category.category_id && category.category_id.toString() === parentCategory._id.toString()) {
+        subCategoryNames.push({ name: category.display_name, id: category._id });
+      }
+      // Add all products from this category to the map to ensure uniqueness.
+      if (category.products) {
+        for (const product of category.products) {
+          productMap.set(product._id.toString(), product);
         }
+      }
+    }
 
-
-      });
+    const uniqueProducts = Array.from(productMap.values());
+    parentCategory.products = uniqueProducts;
+    parentCategory.subCategories = subCategoryNames // Attach unique products to parent category
+    // 7. Construct a clean, final response object.
+    const result = {
+      category: parentCategory.toJSON(), // Use toJSON() to get a plain object
+      subcategories: subCategoryNames,
+      // products: uniqueProducts,
+    };
 
     reply.status(200).send(
-      new ApiResponse(200, categories, "categories product fetched successfully")
+      new ApiResponse(200, result, "Category and products fetched successfully")
     );
+
   } catch (err) {
-    console.error(err);
-    reply
-      .status(500)
-      .send(new ApiResponse(500, {}, "Error fetching category attributes"));
+    console.error("Error fetching category products:", err);
+    reply.status(500).send(
+      new ApiResponse(500, {}, "An internal server error occurred.")
+    );
   }
 };
 
