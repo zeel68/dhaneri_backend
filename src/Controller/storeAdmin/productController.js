@@ -118,20 +118,37 @@ const getStoreProducts = async (request, reply) => {
         const storeId = request.user.store_id
         const {
             category,
+            parent_category,
             tags,
             minPrice,
             maxPrice,
             page = 1,
             limit = 20,
-            sortBy = "created_at",
-            sortOrder = "desc",
+            search,
+            sort = "created_at",
+            order = "desc",
+            status,
+            stock_level,
+            date_from,
+            date_to,
         } = request.query
+        console.log(request.query);
 
         const skip = (page - 1) * limit
         const filter = { store_id: storeId }
 
+        // Apply search filter
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } },
+                { sku: { $regex: search, $options: "i" } }
+            ]
+        }
+
         // Apply filters
-        if (category) filter.category = category
+        if (category && category !== "all") filter.category = category
+        if (parent_category && parent_category !== "all") filter.parent_category = parent_category
         if (tags) {
             const tagArray = tags.split(",")
             filter["tags.tagName"] = { $in: tagArray }
@@ -142,12 +159,53 @@ const getStoreProducts = async (request, reply) => {
             if (maxPrice) filter.price.$lte = Number(maxPrice)
         }
 
+        // Status filter
+        if (status && status !== "all") {
+            filter.status = status
+        }
+
+        // Stock level filter
+        if (stock_level && stock_level !== "all") {
+            switch (stock_level) {
+                case "in_stock":
+                    filter["stock.quantity"] = { $gt: 0 }
+                    break
+                case "low_stock":
+                    filter["stock.quantity"] = { $gt: 0, $lt: 10 }
+                    break
+                case "out_of_stock":
+                    filter["stock.quantity"] = { $lte: 0 }
+                    break
+                case "high_stock":
+                    filter["stock.quantity"] = { $gt: 100 }
+                    break
+            }
+        }
+
+        // Date range filter
+        if (date_from || date_to) {
+            filter.created_at = {}
+            if (date_from) filter.created_at.$gte = new Date(date_from)
+            if (date_to) {
+                // Add one day to date_to to include the entire day
+                const endDate = new Date(date_to)
+                endDate.setDate(endDate.getDate() + 1)
+                filter.created_at.$lt = endDate
+            }
+        }
+
         // Build sort object
-        const sort = {}
-        sort[sortBy] = sortOrder === "desc" ? -1 : 1
+        const sortObj = {}
+        sortObj[sort] = order === "desc" ? -1 : 1
 
         const [products, total] = await Promise.all([
-            Product.find(filter).populate("category", "name").populate("variants").sort(sort).skip(skip).limit(Number(limit)),
+            Product.find(filter)
+                .populate("category", "name display_name")
+                .populate("parent_category", "name display_name")
+                .populate("variants")
+                .sort(sortObj)
+                .skip(skip)
+                .limit(Number(limit)),
 
             Product.countDocuments(filter),
         ])
@@ -162,6 +220,8 @@ const getStoreProducts = async (request, reply) => {
                         limit: Number(limit),
                         total,
                         pages: Math.ceil(total / limit),
+                        hasNext: page < Math.ceil(total / limit),
+                        hasPrev: page > 1,
                     },
                 },
                 "Products fetched successfully",
