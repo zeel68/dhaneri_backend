@@ -1,7 +1,7 @@
 // Payment.js
 import mongoose from "mongoose";
 const paymentSchema = new mongoose.Schema({
-    user: {
+    user_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },
@@ -19,11 +19,23 @@ const paymentSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    currency: String,
     // paymentMethod: {
     //     type: mongoose.Schema.Types.ObjectId,
     //     ref: 'PaymentMethod',
     //     required: true
     // },
+    payment_provider: String,
+    payment_method: {
+        type: String
+    },
+    gateway_data: {
+        type: JSON
+    },
+    gateway_response: String,
+
+    transaction_id: String,
+    processed_at: Date,
     status: {
         type: String,
         enum: ['pending', 'completed', 'failed', 'refunded', 'cancelled', 'processing', 'paid'],

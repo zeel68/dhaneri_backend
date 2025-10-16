@@ -8,84 +8,6 @@ import path from "path"
 
 // Get all products for storefront with filters and pagination
 const getStorefrontProducts = async (request, reply) => {
-  // try {
-  //   const { store_id } = request.params
-  //   const {
-  //     page = 1,
-  //     limit = 12,
-  //     category,
-  //     min_price,
-  //     max_price,
-  //     sort = "created_at",
-  //     order = "desc",
-  //     tags,
-  //     in_stock = true,
-  //   } = request.query
-
-  //   // Build filter query
-  //   const filter = {
-  //     store_id: new mongoose.Types.ObjectId(store_id),
-  //     is_active: true,
-  //     is_published: true,
-  //   }
-
-  //   if (category) {
-  //     filter.category_id = new mongoose.Types.ObjectId(category)
-  //   }
-
-  //   if (min_price || max_price) {
-  //     filter.price = {}
-  //     if (min_price) filter.price.$gte = Number.parseFloat(min_price)
-  //     if (max_price) filter.price.$lte = Number.parseFloat(max_price)
-  //   }
-
-  //   if (tags) {
-  //     const tagArray = tags.split(",")
-  //     filter["tags.name"] = { $in: tagArray }
-  //   }
-
-  //   if (in_stock === "true") {
-  //     filter["stock.quantity"] = { $gt: 0 }
-  //   }
-
-  //   // Build sort object
-  //   const sortObj = {}
-  //   sortObj[sort] = order === "desc" ? -1 : 1
-
-  //   const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
-
-  //   const products = await Product.find({})
-  //     .populate("parent_category", "name")
-  //     .populate("store_id", "name")
-  //     .sort(sortObj)
-  //     .skip(skip)
-  //     .limit(Number.parseInt(limit))
-  //     .select("-__v")
-
-  //   const total = await Product.countDocuments(filter)
-  //   const totalPages = Math.ceil(total / Number.parseInt(limit))
-
-  //   return reply.code(200).send(
-  //     new ApiResponse(
-  //       200,
-  //       {
-  //         products,
-  //         pagination: {
-  //           current_page: Number.parseInt(page),
-  //           total_pages: totalPages,
-  //           total_items: total,
-  //           items_per_page: Number.parseInt(limit),
-  //           has_next: Number.parseInt(page) < totalPages,
-  //           has_prev: Number.parseInt(page) > 1,
-  //         },
-  //       },
-  //       "Products fetched successfully",
-  //     ),
-  //   )
-  // } catch (error) {
-  //   request.log?.error?.(error)
-  //   return reply.code(500).send(new ApiResponse(500, {}, "Error fetching products"))
-  // }
 
   try {
     const { store_id } = request.params
@@ -121,7 +43,13 @@ const getStorefrontProducts = async (request, reply) => {
     sort[sortBy] = sortOrder === "desc" ? -1 : 1
 
     const [products, total] = await Promise.all([
-      Product.find(filter).populate("category", "name").populate("variants").sort(sort).skip(skip).limit(Number(limit)),
+      Product.find(filter).populate("category").populate({
+        path: "variants",
+        populate: {
+          path: "sizes",
+          model: "ProductSizes"
+        }
+      }).sort(sort).skip(skip).limit(Number(limit)),
       Product.countDocuments(filter),
     ])
 

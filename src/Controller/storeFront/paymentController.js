@@ -63,7 +63,7 @@ const getPaymentMethods = async (request, reply) => {
 const initializePayment = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { order_id, payment_method, return_url } = request.body
+    const { order_id, payment_method, return_url, payment_provider } = request.body
     const user_id = request.user._id
 
     if (!order_id || !payment_method) {
@@ -87,9 +87,9 @@ const initializePayment = async (request, reply) => {
       order_id: order_id,
       store_id: store_id,
       user_id: user_id,
-      order_id: order_id,
       amount: order.total,
-      currency: "INR", // Make this configurable
+      currency: "INR",
+      payment_provider,
       payment_method,
       status: "pending",
       gateway_data: {},
@@ -98,42 +98,38 @@ const initializePayment = async (request, reply) => {
     const paymentResponse = {
       payment_id: payment._id,
       amount: order.total,
-      currency: "USD",
+      currency: "INR",
+      payment_provider,
       payment_method,
       status: "pending",
+      order_number: order.order_number,
+      coupon_id: order.coupon_id,
+      cart_id: order.cart_id,
     }
 
-    // Handle different payment methods
-    switch (payment_method) {
+    // Payment gateway integration stubs
+    switch (payment_provider) {
       case "card":
       case "stripe":
-        // In a real implementation, you would integrate with Stripe here
         paymentResponse.client_secret = `pi_${payment._id}_secret_${Date.now()}`
         paymentResponse.publishable_key = "pk_test_example"
         break
       case "razorpay":
         paymentResponse.razorpay_key = "rzp_test_example"
-        paymentResponse.order_id = `order_${payment._id}`
+        paymentResponse.razorpay_order_id = `order_${payment._id}`
         break
-
       case "paypal":
-        // In a real implementation, you would integrate with PayPal here
         paymentResponse.approval_url = `https://www.paypal.com/checkoutnow?token=EC-${payment._id}`
         break
-
       case "cod":
-        // Cash on delivery - mark as pending
         payment.status = "pending"
         await payment.save()
-
         order.payment_status = "pending"
         order.status = "confirmed"
         await order.save()
-
         paymentResponse.status = "confirmed"
         paymentResponse.message = "Order confirmed. Payment will be collected on delivery."
         break
-
       default:
         return reply.code(400).send(new ApiResponse(400, {}, "Unsupported payment method"))
     }
@@ -153,7 +149,7 @@ const initializePayment = async (request, reply) => {
 const processPaymentCallback = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { payment_id, status, transaction_id, gateway_response, gatway_payment_id } = request.body
+    const { payment_id, status, transaction_id, gateway_response, razorpay_payment_id } = request.body
 
     if (!payment_id || !status) {
       return reply.code(400).send(new ApiResponse(400, {}, "Payment ID and status are required"))
@@ -163,17 +159,14 @@ const processPaymentCallback = async (request, reply) => {
       _id: payment_id,
       store_id: store_id,
     })
-    console.log(payment_id, store_id);
-    console.log(payment);
-
 
     if (!payment) {
       return reply.code(404).send(new ApiResponse(404, {}, "Payment not found"))
     }
 
-    // Update payment status
+    // Update payment status and gateway details
     payment.status = status
-    payment.transaction_id = transaction_id
+    payment.transaction_id = transaction_id || razorpay_payment_id || ""
     payment.gateway_response = gateway_response || {}
     payment.processed_at = new Date()
     await payment.save()
@@ -193,14 +186,7 @@ const processPaymentCallback = async (request, reply) => {
           })
         }
       }
-      const saveResult = await order.save();
-      console.log("Save result:", saveResult);
-
-      const savedOrder = await Order.findById(order._id);
-      console.log("Saved order from DB:", savedOrder);
-
-      // await order.save()
-
+      await order.save()
     }
 
     return reply.code(200).send(new ApiResponse(200, { payment, order }, "Payment callback processed successfully"))

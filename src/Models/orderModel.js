@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 import { ref } from 'process';
 const { Schema } = mongoose;
@@ -127,6 +128,9 @@ const orderSchema = new Schema({
         // enum: ['pending', 'paid', 'failed', 'refunded'],
         default: 'pending'
     },
+    payment_method: String,
+    transaction_id: String,
+
     shipping_method: String,
     tracking_number: String,
     notes: String

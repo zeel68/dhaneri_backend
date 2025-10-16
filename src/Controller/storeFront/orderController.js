@@ -5,6 +5,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js"
 import { generateOrderNumber } from "../../utils/helpers.js"
 import mongoose from "mongoose"
 import Razorpay from "razorpay"
+import { Payment } from "../../Models/paymentModel.js"
 
 // Create new order
 const createOrder = async (request, reply) => {
@@ -212,7 +213,7 @@ const getOrderDetails = async (request, reply) => {
     const { store_id, order_id } = request.params
     const user_id = request.user._id
 
-    const order = await Order.findOne({
+    var order = await Order.findOne({
       order_number: order_id,
       store_id: store_id,
       user_id: user_id,
@@ -226,13 +227,18 @@ const getOrderDetails = async (request, reply) => {
           model: "ProductSizes",
         },
       })
+      // .populate("payment_id")
       .populate("user_id", "name email phone_number")
+
 
     if (!order) {
       return reply.code(404).send(new ApiResponse(404, {}, "Order not found"))
     }
-
-    return reply.code(200).send(new ApiResponse(200, { order }, "Order details fetched successfully"))
+    const payment = await Payment.findOne({ order_id: order._id })
+    order.payment = payment;
+    return reply.code(200).send(new ApiResponse(200, {
+      order, payment
+    }, "Order details fetched successfully"))
   } catch (error) {
     request.log?.error?.(error)
     return reply.code(500).send(new ApiResponse(500, {}, "Error fetching order details"))
