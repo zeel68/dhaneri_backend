@@ -169,13 +169,14 @@ export default async function storeAdminRoutes(fastify, options) {
   // === PRODUCT MANAGEMENT ROUTES ===
   fastify.post("/products", addProduct)
   fastify.get("/products", getStoreProducts)
-  fastify.get("/products/:productId", getProductById)
-  fastify.put("/products/:productId", updateProduct)
-  fastify.delete("/products/:productId", deleteProduct)
   fastify.patch("/products/bulk-update", bulkUpdateProducts)
   fastify.get("/products/inventory/low-stock", getLowStockProducts)
   fastify.get("/products/inventory/out-of-stock", getOutOfStockProducts)
   fastify.post("/products/addToCategory", addProductToCategory)
+  // Dynamic :productId routes MUST come AFTER static routes
+  fastify.get("/products/:productId", getProductById)
+  fastify.put("/products/:productId", updateProduct)
+  fastify.delete("/products/:productId", deleteProduct)
   fastify.post("/products/:product_id/status", toggleProductStatus)
 
   // === STORE CONFIGURATION ROUTES ===

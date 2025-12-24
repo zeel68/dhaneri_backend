@@ -1,4 +1,5 @@
 // 1. Add Product to Store
+import mongoose from "mongoose";
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { Product, ProductSizes, ProductVariant } from "../../Models/productModel.js"
 import { Store } from "../../Models/storeModel.js"
@@ -21,7 +22,8 @@ const addProduct = async (request, reply) => {
             parent_category,
             images,
             variants,
-            slug
+            slug,
+            cost_price
         } = request.body;
 
         if (!name?.trim()) {
@@ -73,6 +75,7 @@ const addProduct = async (request, reply) => {
             attributes,
             stock,
             images,
+            cost_price: cost_price ? Number(cost_price) : undefined,
             // tags,
             slug,
             variants: variantDocs.map(v => v._id),
@@ -238,6 +241,11 @@ const getProductById = async (request, reply) => {
         const { productId } = request.params
         const storeId = request.user.store_id
 
+        // Validate ObjectId to prevent CastError
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return reply.code(400).send(new ApiResponse(400, {}, "Invalid product ID"))
+        }
+
         const product = await Product.findOne({ _id: productId, store_id: storeId })
             .populate("category", "_id")
             .populate({
@@ -271,6 +279,12 @@ const updateProduct = async (request, reply) => {
     try {
         const { productId } = request.params;
         const storeId = request.user.store_id || request.body.store_id;
+
+        // Validate ObjectId to prevent CastError
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return reply.code(400).send(new ApiResponse(400, {}, "Invalid product ID"));
+        }
+
         const updateData = { ...request.body, updated_at: new Date() };
 
         // Parse JSON fields if they are strings
@@ -422,6 +436,11 @@ const deleteProduct = async (request, reply) => {
     try {
         const { productId } = request.params
         const storeId = request.user.store_id
+
+        // Validate ObjectId to prevent CastError
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return reply.code(400).send(new ApiResponse(400, {}, "Invalid product ID"))
+        }
 
         const deleted = await Product.findOneAndDelete({ _id: productId, store_id: storeId })
         await TrendingProduct.findByIdAndDelete({ product_id: productId })

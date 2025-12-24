@@ -71,6 +71,9 @@ const productSchema = new mongoose.Schema({
     compare_price: {
         type: Number,
     },
+    cost_price: {
+        type: Number,
+    },
     HSNCode: {
         type: String,
     },
@@ -119,7 +122,10 @@ const productSchema = new mongoose.Schema({
     attributes: {
         type: JSON
     },
-
+    shipping: {
+        type: JSON
+    },
+    seo: JSON,
     stock: {
         quantity: {
             type: Number,
