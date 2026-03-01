@@ -1,6 +1,7 @@
 import { request } from "http"
 import { Product } from "../../Models/productModel.js"
 import { ProductView } from "../../Models/productViewModel.js"
+import { Coupon } from "../../Models/couponModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { getLocationFromIP } from "../../utils/locationService.js"
 import mongoose from "mongoose"
@@ -408,12 +409,35 @@ const getProductBySlug = async (request, reply) => {
       .limit(4)
       .select("name price discount_price images")
 
+    // Get available coupons for this store
+    const now = new Date()
+    const available_coupons = await Coupon.find({
+      store_id: new mongoose.Types.ObjectId(store_id),
+      is_active: true,
+      start_date: { $lte: now },
+      $or: [
+        { end_date: { $gte: now } },
+        { end_date: null },
+        { end_date: { $exists: false } },
+      ],
+      $expr: {
+        $or: [
+          { $eq: [{ $ifNull: ["$usage_limit", null] }, null] },
+          { $lt: ["$usage_count", "$usage_limit"] },
+        ],
+      },
+    })
+      .select("code description type value minimum_order_amount maximum_discount_amount end_date")
+      .sort({ created_at: -1 })
+      .lean()
+
     return reply.code(200).send(
       new ApiResponse(
         200,
         {
           product,
           related_products: relatedProducts,
+          available_coupons,
         },
         "Product details fetched successfully",
       ),
