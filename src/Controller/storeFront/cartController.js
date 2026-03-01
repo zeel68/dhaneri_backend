@@ -743,4 +743,37 @@ const removeCoupon = async (request, reply) => {
   }
 };
 
-export { addToCart, getCart, updateCartItem, removeCartItem, clearCart, applyCoupon, removeCoupon }
+// Get available coupons for customer view
+const getAvailableCoupons = async (request, reply) => {
+  try {
+    const { store_id } = request.params
+    const now = new Date()
+
+    const coupons = await Coupon.find({
+      store_id,
+      is_active: true,
+      start_date: { $lte: now },
+      $or: [
+        { end_date: { $gte: now } },
+        { end_date: null },
+        { end_date: { $exists: false } },
+      ],
+      $expr: {
+        $or: [
+          { $eq: [{ $ifNull: ["$usage_limit", null] }, null] },
+          { $lt: ["$usage_count", "$usage_limit"] },
+        ],
+      },
+    })
+      .select("code description type value minimum_order_amount maximum_discount_amount end_date")
+      .sort({ created_at: -1 })
+      .lean()
+
+    return reply.code(200).send(new ApiResponse(200, { coupons }, "Available coupons fetched"))
+  } catch (error) {
+    request.log?.error?.(error)
+    return reply.code(500).send(new ApiResponse(500, {}, "Error fetching coupons"))
+  }
+}
+
+export { addToCart, getCart, updateCartItem, removeCartItem, clearCart, applyCoupon, removeCoupon, getAvailableCoupons }

@@ -13,7 +13,6 @@ const createOrder = async (request, reply) => {
     const { store_id } = request.params
     const { shipping_address, billing_address, payment_method, notes, use_cart = true } = request.body
     const user_id = request.user._id
-    console.log(user_id, store_id);
 
     if (!shipping_address) {
       return reply.code(400).send(new ApiResponse(400, {}, "Shipping address is required"))
@@ -40,9 +39,9 @@ const createOrder = async (request, reply) => {
           return reply.code(400).send(new ApiResponse(400, {}, "Some products in cart are no longer available"))
         }
 
-        // if (item.product_id.stock.quantity < item.quantity) {
-        //   return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${item.product_id.name}`))
-        // }
+        if (item.product_id.stock && item.product_id.stock.quantity < item.quantity) {
+          return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${item.product_id.name}`))
+        }
 
         const itemPrice = item.product_id.discount_price || item.product_id.price
         const itemTotal = itemPrice * item.quantity
@@ -59,7 +58,6 @@ const createOrder = async (request, reply) => {
     } else {
       // Direct order (items provided in request)
       const { items } = request.body
-      console.log(items);
 
       if (!items || items.length === 0) {
         return reply.code(400).send(new ApiResponse(400, {}, "Order items are required"))
@@ -71,9 +69,9 @@ const createOrder = async (request, reply) => {
           return reply.code(400).send(new ApiResponse(400, {}, `Product ${item.product_id} not found`))
         }
 
-        // if (product.stock.quantity < item.quantity) {
-        //   return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${product.name}`))
-        // }
+        if (product.stock && product.stock.quantity < item.quantity) {
+          return reply.code(400).send(new ApiResponse(400, {}, `Insufficient stock for ${product.name}`))
+        }
 
         const itemPrice = product.discount_price || product.price
         const itemTotal = itemPrice * item.quantity
@@ -119,11 +117,11 @@ const createOrder = async (request, reply) => {
     })
 
     // Update product stock
-    // for (const item of orderItems) {
-    //   await Product.findByIdAndUpdate(item.product_id, {
-    //     $inc: { "stock.quantity": -item.quantity },
-    //   })
-    // }
+    for (const item of orderItems) {
+      await Product.findByIdAndUpdate(item.product_id, {
+        $inc: { "stock.quantity": -item.quantity },
+      })
+    }
 
     // Clear cart if used
     if (use_cart) {
@@ -137,8 +135,8 @@ const createOrder = async (request, reply) => {
       .populate("items.product_id", "name images")
       .populate("user_id", "name email phone_number")
     const razorpayInstance = new Razorpay({
-      key_id: "rzp_test_2TD6bdPgMvp803",
-      key_secret: "3vHqucr88tmW6PqQmeBuii2N",
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
     let response = await razorpayInstance.orders.create({
       "amount": populatedOrder.total * 100,
@@ -147,7 +145,6 @@ const createOrder = async (request, reply) => {
 
 
     populatedOrder.razorpay_order_id = response.id
-    console.log("Data", populatedOrder.razorpay_order_id);
 
     return reply.code(201).send(new ApiResponse(201, { order: populatedOrder, razorpay_order_id: response.id }, "Order created successfully"))
   } catch (error) {
