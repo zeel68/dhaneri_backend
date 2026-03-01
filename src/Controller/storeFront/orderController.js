@@ -1,6 +1,7 @@
 import { Order } from "../../Models/orderModel.js"
 import { Cart } from "../../Models/cartModel.js"
 import { Product } from "../../Models/productModel.js"
+import { Store } from "../../Models/storeModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { generateOrderNumber } from "../../utils/helpers.js"
 import mongoose from "mongoose"
@@ -11,7 +12,7 @@ import { Payment } from "../../Models/paymentModel.js"
 const createOrder = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { shipping_address, billing_address, payment_method, notes, use_cart = true } = request.body
+    const { shipping_address, billing_address, payment_method, notes, use_cart = true, shipping_method } = request.body
     const user_id = request.user._id
 
     if (!shipping_address) {
@@ -89,10 +90,33 @@ const createOrder = async (request, reply) => {
       }
     }
 
+    // Calculate shipping cost from store config
+    let shippingCost = 0
+    const store = await Store.findById(store_id).select("config")
+    if (store?.config?.shipping_zones?.length > 0) {
+      // Find matching shipping zone and rate
+      for (const zone of store.config.shipping_zones) {
+        const rates = zone.rates || []
+        const matchedRate = shipping_method
+          ? rates.find(r => r.method === shipping_method)
+          : rates[0] // default to first rate if no method specified
+
+        if (matchedRate) {
+          shippingCost = matchedRate.cost || 0
+
+          // Check free shipping threshold
+          const freeThreshold = zone.free_shipping_threshold || 0
+          if (freeThreshold > 0 && subtotal >= freeThreshold) {
+            shippingCost = 0
+          }
+          break
+        }
+      }
+    }
+
     // Calculate totals
-    const taxRate = 0 // 10% tax (you can make this configurable)
+    const taxRate = 0
     const tax = subtotal * taxRate
-    const shippingCost = subtotal > 50 ? 0 : 10 // Free shipping over $50
     const total = subtotal + tax + shippingCost
 
     // Generate order number

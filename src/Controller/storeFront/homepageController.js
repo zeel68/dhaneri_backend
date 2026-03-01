@@ -107,7 +107,7 @@ const getStoreInfo = async (request, reply) => {
     const store = await Store.findOne({
       _id: store_id,
       is_active: true,
-    }).select("name description logo banner contact_email contact_phone address social_links business_hours policies")
+    }).select("name description logo banner contact_email contact_phone address social_links business_hours policies config")
 
     if (!store) {
       return reply.code(404).send(new ApiResponse(404, {}, "Store not found"))
