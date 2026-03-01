@@ -66,7 +66,7 @@ import {
   getUserProductReview,
 } from "../Controller/storeFront/reviewController.js"
 import { getTrendingCategories, getTrendingProducts } from "../Controller/storeFront/homepageController.js"
-import { verifyJWT } from "../Middleware/auth.middleware.js"
+import { verifyJWT, optionalVerifyJWT } from "../Middleware/auth.middleware.js"
 import {
   trackSession,
   trackProductView,
@@ -117,7 +117,7 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.get("/store/:store_id/wishlist/check/:product_id", checkWishlistStatus)
 
   // Order Routes (require authentication)
-  fastify.post("/store/:store_id/orders", { preHandler: verifyJWT }, createOrder)
+  fastify.post("/store/:store_id/orders", { preHandler: optionalVerifyJWT }, createOrder)
   fastify.get("/store/:store_id/orders", { preHandler: verifyJWT }, getUserOrders)
   fastify.get("/store/:store_id/orders/:order_id", { preHandler: verifyJWT }, getOrderDetails)
   fastify.patch("/store/:store_id/orders/:order_id/cancel", { preHandler: verifyJWT }, cancelOrder)

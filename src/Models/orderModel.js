@@ -76,8 +76,13 @@ const orderSchema = new Schema({
     user_id: {
         type: Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        index: true,
+        default: null
+    },
+    customer_info: {
+        name: String,
+        email: String,
+        phone: String,
     },
     order_number: {
         type: String,
@@ -185,9 +190,11 @@ orderSchema.pre('save', async function (next) {
     const storeExists = await mongoose.model('Store').exists({ _id: this.store_id });
     if (!storeExists) throw new Error('Specified store does not exist');
 
-    // Validate user exists
-    const userExists = await mongoose.model('User').exists({ _id: this.user_id });
-    if (!userExists) throw new Error('Specified user does not exist');
+    // Validate user exists (only if user_id is set)
+    if (this.user_id) {
+        const userExists = await mongoose.model('User').exists({ _id: this.user_id });
+        if (!userExists) throw new Error('Specified user does not exist');
+    }
 
     // Validate order items
     // for (const item of this.items) {

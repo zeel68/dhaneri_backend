@@ -12,8 +12,19 @@ import { Payment } from "../../Models/paymentModel.js"
 const createOrder = async (request, reply) => {
   try {
     const { store_id } = request.params
-    const { shipping_address, billing_address, payment_method, notes, use_cart = true, shipping_method } = request.body
-    const user_id = request.user._id
+    const { shipping_address, billing_address, payment_method, notes, use_cart = true, shipping_method, customer_info } = request.body
+    const user_id = request.user?._id || null
+
+    // Check if guest checkout is allowed when user is not logged in
+    if (!user_id) {
+      const storeCheck = await Store.findById(store_id).select("config")
+      if (!storeCheck?.config?.allow_guest_checkout) {
+        return reply.code(401).send(new ApiResponse(401, {}, "Please login to place an order"))
+      }
+      if (!customer_info?.email || !customer_info?.phone || !customer_info?.firstName) {
+        return reply.code(400).send(new ApiResponse(400, {}, "Customer info (name, email, phone) is required for guest orders"))
+      }
+    }
 
     if (!shipping_address) {
       return reply.code(400).send(new ApiResponse(400, {}, "Shipping address is required"))
@@ -123,10 +134,9 @@ const createOrder = async (request, reply) => {
     const orderNumber = generateOrderNumber()
 
     // Create order
-    const order = await Order.create({
+    const orderData = {
       order_number: orderNumber,
       store_id: store_id,
-      user_id: user_id,
       items: orderItems,
       subtotal: Math.round(subtotal * 100) / 100,
       tax: Math.round(tax * 100) / 100,
@@ -138,7 +148,21 @@ const createOrder = async (request, reply) => {
       notes,
       status: "pending",
       payment_status: "pending",
-    })
+    }
+
+    // Add user or guest info
+    if (user_id) {
+      orderData.user_id = user_id
+    }
+    if (customer_info) {
+      orderData.customer_info = {
+        name: `${customer_info.firstName} ${customer_info.lastName || ''}`.trim(),
+        email: customer_info.email,
+        phone: customer_info.phone,
+      }
+    }
+
+    const order = await Order.create(orderData)
 
     // Update product stock
     for (const item of orderItems) {
@@ -147,8 +171,8 @@ const createOrder = async (request, reply) => {
       })
     }
 
-    // Clear cart if used
-    if (use_cart) {
+    // Clear cart if used (only for logged-in users)
+    if (use_cart && user_id) {
       await Cart.findOneAndUpdate(
         { user_id, store_id: new mongoose.Types.ObjectId(store_id) },
         { $set: { items: [], coupon_id: null, subtotal: 0, total: 0 } },

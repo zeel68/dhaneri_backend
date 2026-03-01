@@ -38,6 +38,24 @@ export async function verifyJWT(request, reply) {
     }
 }
 
+// Optional JWT verification - sets request.user if valid token, but doesn't reject if missing
+export async function optionalVerifyJWT(request, reply) {
+    const token = request.headers.authorization?.replace('Bearer ', '')
+
+    if (!token) {
+        request.user = null
+        return
+    }
+
+    try {
+        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+        const user = await User.findById(decodedToken?._id).select('-password -refreshToken')
+        request.user = user || null
+    } catch (error) {
+        request.user = null
+    }
+}
+
 
 // // 🛡️ Require Login Middleware
 // export const requireUser = async (request, reply) => {
