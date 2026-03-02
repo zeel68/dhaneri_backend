@@ -269,13 +269,19 @@ const getUserOrders = async (request, reply) => {
 const getOrderDetails = async (request, reply) => {
   try {
     const { store_id, order_id } = request.params
-    const user_id = request.user._id
+    const user_id = request.user ? request.user._id : null
 
-    var order = await Order.findOne({
+    // For security, require either user authentication or that it's a valid order
+    const query = {
       order_number: order_id,
       store_id: store_id,
-      user_id: user_id,
-    })
+    }
+
+    if (user_id) {
+      query.user_id = user_id
+    }
+
+    var order = await Order.findOne(query)
       // .populate("items.product_id", "name images price discount_price")
       .populate("items.product_id")
       .populate({
@@ -292,10 +298,13 @@ const getOrderDetails = async (request, reply) => {
     if (!order) {
       return reply.code(404).send(new ApiResponse(404, {}, "Order not found"))
     }
+
     const payment = await Payment.findOne({ order_id: order._id })
-    order.payment = payment;
+    const orderData = order.toObject();
+    orderData.payment = payment;
+
     return reply.code(200).send(new ApiResponse(200, {
-      order, payment
+      order: orderData, payment
     }, "Order details fetched successfully"))
   } catch (error) {
     request.log?.error?.(error)

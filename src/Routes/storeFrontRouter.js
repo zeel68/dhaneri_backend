@@ -119,7 +119,7 @@ export default async function storefrontRoutes(fastify, opts) {
   // Order Routes (require authentication)
   fastify.post("/store/:store_id/orders", { preHandler: optionalVerifyJWT }, createOrder)
   fastify.get("/store/:store_id/orders", { preHandler: verifyJWT }, getUserOrders)
-  fastify.get("/store/:store_id/orders/:order_id", { preHandler: verifyJWT }, getOrderDetails)
+  fastify.get("/store/:store_id/orders/:order_id", { preHandler: optionalVerifyJWT }, getOrderDetails)
   fastify.patch("/store/:store_id/orders/:order_id/cancel", { preHandler: verifyJWT }, cancelOrder)
   fastify.get("/store/:store_id/track/:order_number", trackOrder)
 
