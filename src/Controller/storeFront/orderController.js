@@ -176,10 +176,20 @@ const createOrder = async (request, reply) => {
 
     // Clear cart if used
     if (use_cart) {
-      await Cart.findOneAndUpdate(
-        cartQuery,
-        { $set: { items: [], coupon_id: null, subtotal: 0, total: 0 } }
-      )
+      // Re-define cart query to ensure we clear the right cart
+      let clearCartQuery = { store_id };
+      if (user_id) {
+        clearCartQuery.user_id = user_id;
+      } else if (session_id) {
+        clearCartQuery.session_id = session_id;
+      }
+
+      if (clearCartQuery.user_id || clearCartQuery.session_id) {
+        await Cart.findOneAndUpdate(
+          clearCartQuery,
+          { $set: { items: [], coupon_id: null, subtotal: 0, total: 0 } }
+        )
+      }
     }
 
     let populatedOrder = await Order.findById(order._id)
