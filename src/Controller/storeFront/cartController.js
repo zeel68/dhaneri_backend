@@ -5,7 +5,7 @@ import { CartEvent } from "../../Models/cartEventModel.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import { getLocationFromIP } from "../../utils/locationService.js"
 import mongoose from "mongoose"
-import { verifyJWT } from "../../Middleware/auth.middleware.js"
+import { verifyJWT, optionalVerifyJWT } from "../../Middleware/auth.middleware.js"
 
 // Add item to cart
 const addToCart = async (request, reply) => {
@@ -21,15 +21,15 @@ const addToCart = async (request, reply) => {
     console.log("[Store ID]", store_id);
     console.log("[Session ID]", session_id);
 
-    // Step 1: Authenticate user if no session_id
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id;
+    // Step 1: Initialize user authentication (optional)
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
 
-      if (!user_id) {
-        console.warn("[Auth Error] No session ID or user authentication");
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
-      }
+    if (!session_id && !user_id) {
+      console.warn("[Auth Error] No session ID or user authentication");
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
 
     // Step 2: Validate product
@@ -203,12 +203,13 @@ const getCart = async (request, reply) => {
     const session_id = request.headers["x-session-id"]
     console.log("session_id", session_id);
     let user_id;
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id
-      if (!user_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
-      }
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
+
+    if (!session_id && !user_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
 
     let cart
@@ -291,21 +292,21 @@ const updateCartItem = async (request, reply) => {
     const session_id = request.headers["x-session-id"]
     console.log("session_id", session_id);
     let user_id;
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id
-      if (!user_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
-      }
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
+
+    if (!session_id && !user_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
     console.log(session_id, user_id);
 
     let cart
-    if (session_id) {
-      cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
-    }
-    else if (user_id) {
+    if (user_id) {
       cart = await Cart.findOne({ user_id, store_id: new mongoose.Types.ObjectId(store_id) })
+    } else if (session_id) {
+      cart = await Cart.findOne({ session_id, store_id: new mongoose.Types.ObjectId(store_id) })
     }
 
     if (!cart) {
@@ -313,14 +314,12 @@ const updateCartItem = async (request, reply) => {
     }
     console.log(variant_id, product_id, size_id);
 
-    const itemIndex = cart.items.findIndex(
-      (item) => {
-        console.log(item.product_id);
-        console.log(item.variant_id);
-
-        return item.product_id == product_id && variant_id == item.variant_id
-      }
-    )
+    const itemIndex = cart.items.findIndex((item) => {
+      const isProductMatch = item.product_id.toString() === product_id.toString()
+      const isVariantMatch = variant_id ? (item.variant_id && item.variant_id.toString() === variant_id.toString()) : !item.variant_id
+      const isSizeMatch = size_id ? (item.size_id && item.size_id.toString() === size_id.toString()) : !item.size_id
+      return isProductMatch && isVariantMatch && isSizeMatch
+    })
     console.log(itemIndex);
 
 
@@ -339,7 +338,7 @@ const updateCartItem = async (request, reply) => {
       cart.items[itemIndex].quantity = quantity
     }
 
-    // cart.calculateTotals()
+    cart.calculateTotals()
     await cart.save()
 
     const populatedCart = await Cart.findById(cart._id).populate("items.product_id", "name price images discount_price")
@@ -361,12 +360,13 @@ const removeCartItem = async (request, reply) => {
     const session_id = request.headers["x-session-id"]
     console.log("session_id", session_id);
     let user_id;
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id
-      if (!user_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
-      }
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
+
+    if (!session_id && !user_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
     let cart
     if (user_id) {
@@ -379,10 +379,13 @@ const removeCartItem = async (request, reply) => {
       return reply.code(404).send(new ApiResponse(404, {}, "Cart not found"))
     }
 
-    cart.items = cart.items.filter(
-      (item) =>
-        !(item.product_id == product_id && variant_id == item.variant_id),
-    )
+    cart.items = cart.items.filter((item) => {
+      const isProductMatch = item.product_id.toString() === product_id.toString()
+      const isVariantMatch = variant_id ? (item.variant_id && item.variant_id.toString() === variant_id.toString()) : true
+      // If no size_id passed, we just remove the first matched variant. If sizes are used, we should match them too.
+      // But for backward compatibility with existing function signature, we'll keep it to removing matching product+variant.
+      return !(isProductMatch && isVariantMatch)
+    })
 
     cart.calculateTotals()
     let result = await cart.save()
@@ -404,12 +407,13 @@ const clearCart = async (request, reply) => {
     const session_id = request.headers["x-session-id"]
     console.log("session_id", session_id);
     let user_id;
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id
-      if (!user_id) {
-        return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"))
-      }
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
+
+    if (!session_id && !user_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
     let cart
     if (user_id) {
@@ -445,14 +449,13 @@ const applyCoupon = async (request, reply) => {
     }
 
     let user_id;
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id;
-      if (!user_id) {
-        return reply
-          .code(400)
-          .send(new ApiResponse(400, {}, "Session ID or User authentication required"));
-      }
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
+
+    if (!session_id && !user_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
 
     let cart;
@@ -604,14 +607,13 @@ const removeCoupon = async (request, reply) => {
     }
 
     let user_id;
-    if (!session_id) {
-      await verifyJWT(request, reply);
-      user_id = request.user?._id;
-      if (!user_id) {
-        return reply
-          .code(400)
-          .send(new ApiResponse(400, {}, "Session ID or User authentication required"));
-      }
+    await optionalVerifyJWT(request, reply);
+    if (request.user) {
+      user_id = request.user._id;
+    }
+
+    if (!session_id && !user_id) {
+      return reply.code(400).send(new ApiResponse(400, {}, "Session ID or User authentication required"));
     }
 
     let cart;

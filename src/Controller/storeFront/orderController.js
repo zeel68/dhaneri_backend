@@ -15,12 +15,8 @@ const createOrder = async (request, reply) => {
     const { shipping_address, billing_address, payment_method, notes, use_cart = true, shipping_method, customer_info } = request.body
     const user_id = request.user?._id || null
 
-    // Check if guest checkout is allowed when user is not logged in
+    // Validate guest checkout info
     if (!user_id) {
-      const storeCheck = await Store.findById(store_id).select("config")
-      if (!storeCheck?.config?.allow_guest_checkout) {
-        return reply.code(401).send(new ApiResponse(401, {}, "Please login to place an order"))
-      }
       if (!customer_info?.email || !customer_info?.phone || !customer_info?.firstName) {
         return reply.code(400).send(new ApiResponse(400, {}, "Customer info (name, email, phone) is required for guest orders"))
       }
@@ -33,13 +29,20 @@ const createOrder = async (request, reply) => {
     const orderItems = []
     let subtotal = 0
 
+    const session_id = request.headers["x-session-id"]
+
     if (use_cart) {
       // Get items from user's cart
-      const cart = await Cart.findOne({
-        user_id,
+      let cartQuery = { store_id };
+      if (user_id) {
+        cartQuery.user_id = user_id;
+      } else if (session_id) {
+        cartQuery.session_id = session_id;
+      } else {
+        return reply.code(400).send(new ApiResponse(400, {}, "User ID or Session ID required"));
+      }
 
-      }).populate("items.product_id", "name price discount_price stock")
-
+      const cart = await Cart.findOne(cartQuery).populate("items.product_id", "name price discount_price stock")
 
       if (!cart || cart.items.length === 0) {
         return reply.code(400).send(new ApiResponse(400, {}, "Cart is empty"))
@@ -171,11 +174,11 @@ const createOrder = async (request, reply) => {
       })
     }
 
-    // Clear cart if used (only for logged-in users)
-    if (use_cart && user_id) {
+    // Clear cart if used
+    if (use_cart) {
       await Cart.findOneAndUpdate(
-        { user_id, store_id: new mongoose.Types.ObjectId(store_id) },
-        { $set: { items: [], coupon_id: null, subtotal: 0, total: 0 } },
+        cartQuery,
+        { $set: { items: [], coupon_id: null, subtotal: 0, total: 0 } }
       )
     }
 

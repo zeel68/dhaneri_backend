@@ -106,7 +106,7 @@ export default async function storefrontRoutes(fastify, opts) {
   fastify.delete("/store/:store_id/cart/clear", clearCart)
   fastify.post("/store/:store_id/cart/coupon", applyCoupon)
   // fastify.post("/store/:store_id/cart/coupon/validate", validateCoupon)
-  fastify.delete("/store/:store_id/cart/coupon", { preHandler: verifyJWT }, removeCoupon)
+  fastify.delete("/store/:store_id/cart/coupon", removeCoupon)
   fastify.get("/store/:store_id/coupons", getAvailableCoupons)
 
   // Wishlist Routes (require authentication)
