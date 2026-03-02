@@ -64,19 +64,24 @@ const initializePayment = async (request, reply) => {
   try {
     const { store_id } = request.params
     const { order_id, payment_method, return_url, payment_provider } = request.body
-    const user_id = request.user._id
+    const user_id = request.user ? request.user._id : null
 
     if (!order_id || !payment_method) {
       return reply.code(400).send(new ApiResponse(400, {}, "Order ID and payment method are required"))
     }
 
     // Get order
-    const order = await Order.findOne({
+    const orderQuery = {
       _id: order_id,
       store_id: new mongoose.Types.ObjectId(store_id),
-      user_id: new mongoose.Types.ObjectId(user_id),
       payment_status: "pending",
-    })
+    }
+
+    if (user_id) {
+      orderQuery.user_id = new mongoose.Types.ObjectId(user_id)
+    }
+
+    const order = await Order.findOne(orderQuery)
 
     if (!order) {
       return reply.code(404).send(new ApiResponse(404, {}, "Order not found or already paid"))
@@ -86,7 +91,7 @@ const initializePayment = async (request, reply) => {
     const payment = await Payment.create({
       order_id: order_id,
       store_id: store_id,
-      user_id: user_id,
+      ...((user_id) && { user_id: user_id }),
       amount: order.total,
       currency: "INR",
       payment_provider,

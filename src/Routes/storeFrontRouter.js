@@ -125,7 +125,7 @@ export default async function storefrontRoutes(fastify, opts) {
 
   // Payment Routes
   fastify.get("/store/:store_id/payment/methods", getPaymentMethods)
-  fastify.post("/store/:store_id/payment/initialize", { preHandler: verifyJWT }, initializePayment)
+  fastify.post("/store/:store_id/payment/initialize", { preHandler: optionalVerifyJWT }, initializePayment)
   fastify.post("/store/:store_id/payment/callback", processPaymentCallback)
   fastify.get("/store/:store_id/payment/:payment_id/status", getPaymentStatus)
 
