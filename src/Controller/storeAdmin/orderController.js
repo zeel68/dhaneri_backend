@@ -28,8 +28,8 @@ const getStoreOrders = async (request, reply) => {
     if (search) {
       filter.$or = [
         { order_number: { $regex: search, $options: "i" } },
-        { "customer.name": { $regex: search, $options: "i" } },
-        { "customer.email": { $regex: search, $options: "i" } },
+        { "customer_info.name": { $regex: search, $options: "i" } },
+        { "customer_info.email": { $regex: search, $options: "i" } },
       ]
     }
 
